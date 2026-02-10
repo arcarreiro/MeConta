@@ -16,14 +16,6 @@
         .no-print { display: none; }
       }
       
-      /* Cores semânticas simplificadas */
-      .bg-brand-primary { background-color: #7c3aed; }
-      .text-brand-primary { color: #7c3aed; }
-      .border-brand-primary { border-color: #7c3aed; }
-      
-      .bg-brand-secondary { background-color: #0891b2; }
-      
-      /* Sombras suaves personalizadas */
       .shadow-soft {
         box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05), 0 8px 10px -6px rgba(0, 0, 0, 0.05);
       }
@@ -34,18 +26,22 @@
   <script type="importmap">
 {
   "imports": {
+    "vite": "https://esm.sh/vite@^7.3.1",
+    "@supabase/supabase-js": "https://esm.sh/@supabase/supabase-js@^2.95.3",
+    "react-dom/": "https://esm.sh/react-dom@^19.2.4/",
+    "lucide-react": "https://esm.sh/lucide-react@^0.563.0",
+    "@vitejs/plugin-react": "https://esm.sh/@vitejs/plugin-react@^5.1.4",
     "react/": "https://esm.sh/react@^19.2.4/",
     "react": "https://esm.sh/react@^19.2.4",
     "@google/genai": "https://esm.sh/@google/genai@^1.40.0",
-    "react-dom/": "https://esm.sh/react-dom@^19.2.4/",
-    "react-router-dom": "https://esm.sh/react-router-dom@^7.13.0",
-    "lucide-react": "https://esm.sh/lucide-react@^0.563.0",
-    "@supabase/supabase-js": "https://esm.sh/@supabase/supabase-js@^2.48.0"
+    "react-router-dom": "https://esm.sh/react-router-dom@^7.13.0"
   }
 }
 </script>
 </head>
   <body class="bg-[#F8FAFC] text-slate-900">
     <div id="root"></div>
+    <!-- O Vite gerencia os módulos automaticamente a partir daqui -->
+    <script type="module" src="/index.tsx"></script>
   </body>
 </html>

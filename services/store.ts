@@ -1,0 +1,301 @@
+
+import { supabase } from './supabase';
+import { User, Group, FeedbackRound, FeedbackAssignment, SynthesizedReport, Role, CourseEvaluation, RoundStatus } from '../types';
+
+export class Store {
+  private static currentUser: User | null = null;
+
+  static async init() {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (session?.user) {
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', session.user.id)
+        .single();
+      
+      if (profile) {
+        this.currentUser = {
+          id: profile.id,
+          name: profile.name,
+          email: profile.email,
+          role: profile.role,
+          groupId: profile.group_id,
+          bio: profile.bio,
+          curricularInfo: profile.curricular_info,
+          resumeUrl: profile.resume_url,
+          photoUrl: profile.photo_url
+        } as any;
+      }
+    }
+  }
+
+  static getCurrentUser() {
+    return this.currentUser;
+  }
+
+  static async login(email: string, pass: string): Promise<{ user: User | null, error?: string }> {
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({ email, password: pass });
+      if (error) return { user: null, error: error.message };
+      if (!data.user) return { user: null, error: "Erro ao autenticar." };
+
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', data.user.id)
+        .single();
+
+      if (!profile) return { user: null, error: "Perfil não encontrado." };
+
+      this.currentUser = {
+        id: profile.id,
+        name: profile.name,
+        email: profile.email,
+        role: profile.role,
+        groupId: profile.group_id,
+        bio: profile.bio,
+        curricularInfo: profile.curricular_info,
+        resumeUrl: profile.resume_url,
+        photoUrl: profile.photo_url
+      };
+      return { user: this.currentUser };
+    } catch (e) {
+      return { user: null, error: "Erro inesperado." };
+    }
+  }
+
+  static async logout() {
+    await supabase.auth.signOut();
+    this.currentUser = null;
+  }
+
+  static async register(u: { name: string, email: string, password: string }): Promise<{ success: boolean, error?: string }> {
+    const { data, error } = await supabase.auth.signUp({ email: u.email, password: u.password });
+    if (error) return { success: false, error: error.message };
+    if (!data.user) return { success: false, error: "Erro ao criar credenciais." };
+
+    let assignedRole = Role.STUDENT;
+    const { count } = await supabase.from('profiles').select('*', { count: 'exact', head: true });
+    if (count === 0) assignedRole = Role.ADMIN;
+
+    const { error: profileError } = await supabase.from('profiles').insert({
+      id: data.user.id,
+      name: u.name,
+      email: u.email,
+      role: assignedRole
+    });
+
+    if (profileError) return { success: false, error: profileError.message };
+    return { success: true };
+  }
+
+  static async getUsers(): Promise<User[]> {
+    const { data } = await supabase.from('profiles').select('*');
+    return (data || []).map(u => ({
+      id: u.id,
+      name: u.name,
+      email: u.email,
+      role: u.role as Role,
+      groupId: u.group_id,
+      bio: u.bio,
+      curricularInfo: u.curricular_info,
+      resumeUrl: u.resume_url,
+      photoUrl: u.photo_url
+    } as any));
+  }
+
+  static async getGroups(): Promise<Group[]> {
+    const { data } = await supabase.from('groups').select('*');
+    return (data || []).map(g => ({
+      id: g.id,
+      name: g.name,
+      monitorIds: g.monitor_ids || []
+    }));
+  }
+
+  static async getRounds(): Promise<FeedbackRound[]> {
+    const { data } = await supabase.from('rounds').select('*').order('created_at', { ascending: false });
+    return (data || []).map(r => ({
+      id: r.id,
+      name: r.name,
+      deadline: r.deadline,
+      groupId: r.group_id,
+      status: r.status as RoundStatus,
+      createdAt: new Date(r.created_at).getTime()
+    }));
+  }
+
+  static async getAssignments(): Promise<FeedbackAssignment[]> {
+    const { data } = await supabase.from('assignments').select('*');
+    return (data || []).map(a => ({
+      id: a.id,
+      roundId: a.round_id,
+      giverId: a.giver_id,
+      receiverId: a.receiver_id,
+      content: a.content,
+      status: a.status as any,
+      isFromMonitor: a.is_from_monitor,
+      isToMonitor: a.is_to_monitor
+    }));
+  }
+
+  static async getReports(): Promise<SynthesizedReport[]> {
+    const { data } = await supabase.from('reports').select('*').order('created_at', { ascending: false });
+    return (data || []).map(r => ({
+      id: r.id,
+      targetId: r.target_id,
+      roundId: r.round_id,
+      content: r.content,
+      evolution: r.evolution,
+      createdAt: new Date(r.created_at).getTime(),
+      type: r.type as any,
+      isApproved: r.is_approved
+    }));
+  }
+
+  static async getCourseEvaluations(): Promise<CourseEvaluation[]> {
+    const { data } = await supabase.from('course_evaluations').select('*');
+    return (data || []).map(e => ({
+      id: e.id,
+      roundId: String(e.round_id),
+      studentId: String(e.student_id),
+      q1: { score: e.q1_score, comment: e.q1_comment },
+      q2: { score: e.q2_score, comment: e.q2_comment },
+      q3: { score: e.q3_score || 0, comment: e.q3_comment }
+    }));
+  }
+
+  static async updateUser(u: Partial<User>) {
+    await supabase.from('profiles').update({
+      name: u.name,
+      bio: u.bio,
+      curricular_info: u.curricularInfo,
+      resume_url: u.resumeUrl,
+      photo_url: u.photoUrl,
+      group_id: u.groupId
+    }).eq('id', u.id);
+  }
+
+  static async updateUserRole(userId: string, role: Role) {
+    const { error } = await supabase.from('profiles').update({ role }).eq('id', userId);
+    if (error) throw error;
+  }
+
+  static async createGroup(name: string, monitorIds: string[] = []) {
+    const { data, error } = await supabase.from('groups').insert({ name, monitor_ids: monitorIds }).select().single();
+    if (error) throw error;
+    return data;
+  }
+
+  static async updateGroupMonitors(groupId: string, monitorIds: string[]) {
+    await supabase.from('groups').update({ monitor_ids: monitorIds }).eq('id', groupId);
+  }
+
+  static async assignToGroup(userId: string, groupId: string) {
+    await supabase.from('profiles').update({ group_id: groupId }).eq('id', userId);
+  }
+
+  static async startRound(groupId: string, name: string, deadline: number) {
+    const { data: round, error } = await supabase.from('rounds').insert({ group_id: groupId, name, deadline, status: RoundStatus.ACTIVE }).select().single();
+    if (error) throw error;
+
+    const { data: students } = await supabase.from('profiles').select('id').eq('group_id', groupId).eq('role', Role.STUDENT);
+    const { data: group } = await supabase.from('groups').select('monitor_ids').eq('id', groupId).single();
+    
+    if (students && students.length > 0) {
+      const assignments: any[] = [];
+      const monitorIds = group?.monitor_ids || [];
+      students.forEach((student: any) => {
+        monitorIds.forEach((mId: string) => {
+          assignments.push({ round_id: round.id, giver_id: mId, receiver_id: student.id, is_from_monitor: true, is_to_monitor: false, status: 'PENDING' });
+        });
+        const peers = students.filter((s: any) => s.id !== student.id);
+        const selected = [...peers].sort(() => 0.5 - Math.random()).slice(0, 2);
+        selected.forEach((peer: any) => {
+          assignments.push({ round_id: round.id, giver_id: student.id, receiver_id: peer.id, is_from_monitor: false, is_to_monitor: false, status: 'PENDING' });
+        });
+      });
+      await supabase.from('assignments').insert(assignments);
+    }
+    return round;
+  }
+
+  static async deleteRound(roundId: string) {
+    await supabase.from('rounds').delete().eq('id', roundId);
+  }
+
+  static async submitFeedback(assignmentId: string, content: string) {
+    await supabase.from('assignments').update({ content, status: 'SUBMITTED' }).eq('id', assignmentId);
+  }
+
+  static async submitCourseEvaluation(ev: CourseEvaluation) {
+    await supabase.from('course_evaluations').upsert({
+      round_id: ev.roundId,
+      student_id: ev.studentId,
+      q1_score: ev.q1.score,
+      q1_comment: ev.q1.comment,
+      q2_score: ev.q2.score,
+      q2_comment: ev.q2.comment,
+      q3_score: ev.q3.score,
+      q3_comment: ev.q3.comment
+    });
+  }
+
+  static async createStudentToMonitorFeedback(roundId: string, studentId: string, monitorId: string, content: string) {
+    await supabase.from('assignments').insert({
+      round_id: roundId, giver_id: studentId, receiver_id: monitorId, content, status: 'SUBMITTED', is_to_monitor: true, is_from_monitor: false
+    });
+  }
+
+  static async addReport(report: Partial<SynthesizedReport>): Promise<SynthesizedReport> {
+    const { data, error } = await supabase.from('reports').insert({
+      target_id: report.targetId,
+      round_id: report.roundId,
+      content: report.content,
+      evolution: report.evolution,
+      type: report.type,
+      is_approved: report.isApproved ?? false
+    }).select().single();
+    if (error) throw error;
+    return {
+      id: data.id,
+      targetId: data.target_id,
+      roundId: data.round_id,
+      content: data.content,
+      evolution: data.evolution,
+      createdAt: new Date(data.created_at).getTime(),
+      type: data.type,
+      isApproved: data.is_approved
+    };
+  }
+
+  static async updateReport(id: string, updates: Partial<SynthesizedReport>) {
+    await supabase.from('reports').update({ content: updates.content, evolution: updates.evolution }).eq('id', id);
+  }
+
+  /**
+   * Aprova o relatório e verifica se a operação foi bem sucedida no banco.
+   * Se não houver erro mas o banco não retornar a linha afetada, lança exceção (provável RLS).
+   */
+  static async approveReport(id: string) {
+    const { data, error } = await supabase
+      .from('reports')
+      .update({ is_approved: true })
+      .eq('id', id)
+      .select(); // Força o retorno dos dados afetados
+    
+    if (error) throw error;
+    if (!data || data.length === 0) {
+      throw new Error("Falha na atualização: Verifique se você tem permissão de escrita (RLS) nesta tabela.");
+    }
+  }
+
+  static async updateRoundStatus(roundId: string, status: RoundStatus) {
+    await supabase.from('rounds').update({ status }).eq('id', roundId);
+  }
+
+  static async completeRound(roundId: string) {
+    await this.updateRoundStatus(roundId, RoundStatus.COMPLETED);
+  }
+}

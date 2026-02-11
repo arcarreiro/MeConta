@@ -194,6 +194,25 @@ export class Store {
     return data;
   }
 
+  
+  static async deleteGroup(groupId: string) {
+    // 1. Desvincular alunos da turma (set group_id to null)
+    const { error: updateError } = await supabase
+      .from('profiles')
+      .update({ group_id: null })
+      .eq('group_id', groupId);
+    
+    if (updateError) throw updateError;
+
+    // 2. Excluir a turma
+    const { error: deleteError } = await supabase
+      .from('groups')
+      .delete()
+      .eq('id', groupId);
+    
+    if (deleteError) throw deleteError;
+  }
+
   static async updateGroupMonitors(groupId: string, monitorIds: string[]) {
     await supabase.from('groups').update({ monitor_ids: monitorIds }).eq('id', groupId);
   }

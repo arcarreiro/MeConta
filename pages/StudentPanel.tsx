@@ -260,7 +260,7 @@ const StudentPanel: React.FC = () => {
                                     <>
                                       <textarea 
                                         className="w-full rounded-2xl border-0 p-4 text-sm font-medium h-24 bg-white shadow-inner focus:ring-2 focus:ring-violet-200 transition-all" 
-                                        placeholder={`Como ${m.name.split(' ')[0]} pode te ajudar melhor na próxima sprint?`} 
+                                        placeholder={`Como foi o desempenho de ${m.name.split(' ')[0]}? Como ele ou ela pode te ajudar melhor na próxima sprint?`} 
                                         value={monitorFeedbackText[m.id] || ''} 
                                         onChange={(e) => setMonitorFeedbackText({...monitorFeedbackText, [m.id]: e.target.value})} 
                                       />
@@ -355,7 +355,7 @@ const StudentPanel: React.FC = () => {
                                     </div>
                                     <h3 className="text-xl font-bold text-slate-900">Feedback para {rcv?.name}</h3>
                                  </div>
-                                 <textarea id={`task-${task.id}`} className="w-full bg-slate-50 border-0 rounded-[2rem] p-6 h-40 text-slate-700 font-medium focus:ring-2 focus:ring-cyan-200 transition-all shadow-inner" placeholder={`O que você gostaria de dizer para ${rcv?.name.split(' ')[0]}?`} />
+                                 <textarea id={`task-${task.id}`} className="w-full bg-slate-50 border-0 rounded-[2rem] p-6 h-40 text-slate-700 font-medium focus:ring-2 focus:ring-cyan-200 transition-all shadow-inner" placeholder={`Como você avalia o desempenho do(a) colega?\nDe que forma o(a) colega contribuiu para o seu aprendizado?\nHouve algo que o(a) colega fez que ajudou diretamente no seu aprendizado?\nQual seria um ponto de melhoria para este(a) colega?`} />
                                  <button onClick={() => handleSubmitPeerFeedback(task.id)} className="w-full bg-slate-900 hover:bg-cyan-600 text-white py-5 rounded-2xl font-black transition-all shadow-soft active:scale-95 flex items-center justify-center gap-2">
                                     <Send className="w-4 h-4" /> Enviar Feedback Anônimo
                                  </button>

@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { Store } from '../services/store';
 import { ArrowLeft, Printer, BarChart3, Star, Target, MessageSquare, AlertCircle, Sparkles } from 'lucide-react';
-import { BrandLogo } from '../App';
+import { BrandLogo } from '../components/BrandLogo';
 import { FeedbackRound, SynthesizedReport, CourseEvaluation } from '../types';
 
 const CourseReportView: React.FC = () => {

@@ -4,7 +4,7 @@ import { useParams, Link } from 'react-router-dom';
 import { Store } from '../services/store';
 // Added Loader2 to the imports
 import { ArrowLeft, Printer, TrendingUp, Sparkles, Target, Compass, User as UserIcon, Loader2 } from 'lucide-react';
-import { BrandLogo } from '../App';
+import { BrandLogo } from '../components/BrandLogo';
 import { User, SynthesizedReport } from '../types';
 
 const TrajectoryReportView: React.FC = () => {

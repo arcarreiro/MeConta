@@ -177,6 +177,12 @@ export class Store {
     }).eq('id', u.id);
   }
 
+   static async updatePassword(newPassword: string): Promise<{ success: boolean; error?: string }> {
+    const { error } = await supabase.auth.updateUser({ password: newPassword });
+    if (error) return { success: false, error: error.message };
+    return { success: true };
+  }
+
   static async updateUserRole(userId: string, role: Role) {
     const { error } = await supabase.from('profiles').update({ role }).eq('id', userId);
     if (error) throw error;

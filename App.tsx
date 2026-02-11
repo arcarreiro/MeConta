@@ -51,7 +51,7 @@ const Header = () => {
           <Link to="/" className="flex items-center gap-3 group whitespace-nowrap shrink-0">
             <BrandLogo size="md" />
             <span className="text-2xl font-black text-slate-900 tracking-tight leading-none">
-              Me<span className="text-violet-600">Conta</span>
+              Me<span className="text-violet-600">Conta</span>.ai
             </span>
           </Link>
 

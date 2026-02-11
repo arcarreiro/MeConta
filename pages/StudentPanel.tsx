@@ -1,27 +1,17 @@
 
 import React, { useState, useEffect } from 'react';
 import { Store } from '../services/store';
-import { FeedbackAssignment, SynthesizedReport, User, Role, FeedbackRound, CourseEvaluation, Group, RoundStatus } from '../types';
+import { FeedbackAssignment, SynthesizedReport, User, FeedbackRound, CourseEvaluation, Group, RoundStatus } from '../types';
 import { 
-  Send, 
-  FileText, 
-  MessageSquare, 
-  Sparkles, 
-  GraduationCap, 
-  User as UserIcon, 
   Clock, 
-  Star, 
-  History, 
-  ArrowRight, 
   Loader2, 
   CheckCircle2,
-  CalendarDays,
-  Coffee,
-  AlertCircle,
-  Lightbulb, 
-  Info
+  Coffee
 } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { MentoringSection } from '../components/student/MentoringSection';
+import { CourseQualitySection } from '../components/student/CourseQualitySection';
+import { PeersSection } from '../components/student/PeersSection';
+import { ReportsTimeline } from '../components/student/ReportsTimeline';
 
 const StudentPanel: React.FC = () => {
   const me = Store.getCurrentUser();
@@ -36,6 +26,7 @@ const StudentPanel: React.FC = () => {
   
   const [evaluations, setEvaluations] = useState<Record<string, CourseEvaluation>>({});
   const [monitorFeedbackText, setMonitorFeedbackText] = useState<Record<string, string>>({});
+  const [peerFeedbackText, setPeerFeedbackText] = useState<Record<string, string>>({});
   
   // Mapeamento de feedbacks de monitor por RoundID -> [MonitorID, MonitorID...]
   const [submittedMonitorIdsByRound, setSubmittedMonitorIdsByRound] = useState<Record<string, string[]>>({});
@@ -103,10 +94,17 @@ const StudentPanel: React.FC = () => {
     }
   };
 
-  const handleSubmitPeerFeedback = async (id: string) => {
-    const text = (document.getElementById(`task-${id}`) as HTMLTextAreaElement).value;
-    if (!text || text.length < 10) return alert('Por favor, escreva um feedback um pouco mais detalhado.');
+  const handleSubmitPeerFeedback = async (id: string, text: string) => {
+    if (!text || text.length < 10) {
+      alert('Por favor, escreva um feedback um pouco mais detalhado.');
+      return;
+    }
     await Store.submitFeedback(id, text);
+    setPeerFeedbackText(prev => {
+      const next = { ...prev };
+      delete next[id];
+      return next;
+    });
     refresh();
   };
 
@@ -206,169 +204,35 @@ const StudentPanel: React.FC = () => {
                {round.status === RoundStatus.ACTIVE && !isPendingApproval && (
                   <div className="space-y-10 animate-in slide-in-from-top-4 duration-500">
                     
-                    {/* Mentoria com Obrigatoriedade */}
-                    <section className="bg-white rounded-[3rem] border border-slate-100 p-8 md:p-10 space-y-8 shadow-soft relative overflow-hidden">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-4">
-                            <div className="w-12 h-12 bg-violet-100 rounded-2xl flex items-center justify-center text-violet-600">
-                               <GraduationCap className="w-7 h-7" />
-                            </div>
-                            <div>
-                              <h2 className="text-2xl font-black text-slate-900 tracking-tight">Apoio da Mentoria</h2>
-                              <p className="text-xs font-bold text-slate-400">
-                                {monitorsInGroup.length === 1 
-                                  ? 'Avaliação obrigatória para o seu mentor.' 
-                                  : 'Avalie ao menos um mentor para prosseguir.'}
-                              </p>
-                            </div>
-                          </div>
-                          {hasRequirementMet ? (
-                            <div className="bg-emerald-100 text-emerald-700 px-4 py-2 rounded-full text-[10px] font-black uppercase tracking-widest flex items-center gap-2">
-                               <CheckCircle2 className="w-4 h-4" /> Requisito Cumprido
-                            </div>
-                          ) : (
-                            <div className="bg-amber-100 text-amber-700 px-4 py-2 rounded-full text-[10px] font-black uppercase tracking-widest flex items-center gap-2">
-                               <Info className="w-4 h-4" /> Pendente
-                            </div>
-                          )}
-                        </div>
+                    <MentoringSection
+                      round={round}
+                      monitorsInGroup={monitorsInGroup}
+                      submittedMonitorIds={submittedMonitors}
+                      monitorFeedbackText={monitorFeedbackText}
+                      onChangeText={(monitorId, value) =>
+                        setMonitorFeedbackText((prev) => ({ ...prev, [monitorId]: value }))
+                      }
+                      onSubmit={handleMonitorFeedbackSubmit}
+                    />
 
-                        {!hasRequirementMet && (
-                          <div className="p-4 bg-amber-50 border border-amber-100 rounded-2xl flex items-start gap-3 text-amber-800 text-sm font-medium">
-                            <AlertCircle className="w-5 h-5 shrink-0 mt-0.5" />
-                            <span>Para que seu relatório seja gerado com sucesso, é obrigatório enviar feedback para pelo menos um mentor da sua turma.</span>
-                          </div>
-                        )}
+                    <CourseQualitySection
+                      roundId={round.id}
+                      evaluation={evaluations[round.id]}
+                      submitted={submittedCourseRoundIds.includes(round.id)}
+                      onUpdateEval={updateEval}
+                      onSubmit={handleCourseEvalSubmit}
+                    />
 
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                           {monitorsInGroup.map(m => {
-                             const isSubmitted = submittedMonitors.includes(m.id);
-                             return (
-                               <div key={m.id} className={`p-6 rounded-[2rem] flex flex-col gap-4 border transition-all ${isSubmitted ? 'bg-emerald-50/30 border-emerald-100' : 'bg-slate-50 border-transparent hover:border-violet-100'}`}>
-                                  <div className="flex justify-between items-center">
-                                    <div className="flex items-center gap-3">
-                                       <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center text-slate-300 shadow-sm border border-slate-100">
-                                         <UserIcon className="w-5 h-5" />
-                                       </div>
-                                       <span className="font-black text-slate-900">{m.name}</span>
-                                    </div>
-                                    {isSubmitted && (
-                                      <span className="bg-emerald-100 text-emerald-700 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest flex items-center gap-1.5"><CheckCircle2 className="w-3 h-3" /> OK</span>
-                                    )}
-                                  </div>
-                                  {!isSubmitted ? (
-                                    <>
-                                      <textarea 
-                                        className="w-full rounded-2xl border-0 p-4 text-sm font-medium h-24 bg-white shadow-inner focus:ring-2 focus:ring-violet-200 transition-all" 
-                                        placeholder={`Como foi o desempenho de ${m.name.split(' ')[0]}? Como ele ou ela pode te ajudar melhor na próxima sprint?`} 
-                                        value={monitorFeedbackText[m.id] || ''} 
-                                        onChange={(e) => setMonitorFeedbackText({...monitorFeedbackText, [m.id]: e.target.value})} 
-                                      />
-                                      <button onClick={() => handleMonitorFeedbackSubmit(round.id, m.id)} className="bg-slate-900 hover:bg-violet-600 text-white py-3 rounded-xl text-xs font-black transition-all shadow-soft active:scale-95">Enviar Feedback</button>
-                                    </>
-                                  ) : (
-                                    <p className="text-xs text-slate-400 italic text-center py-4">Sua avaliação para este mentor foi registrada.</p>
-                                  )}
-                               </div>
-                             );
-                           })}
-                        </div>
-                    </section>
-
-                    {/* Qualidade do Conteúdo - RESTAURADO COM 3 PERGUNTAS */}
-                    <section className="bg-white rounded-[3rem] border border-slate-100 p-8 md:p-10 space-y-8 shadow-soft">
-                        <div className="flex items-center gap-4">
-                          <div className="w-12 h-12 bg-amber-100 rounded-2xl flex items-center justify-center text-amber-600">
-                             <Star className="w-7 h-7" />
-                          </div>
-                          <div>
-                            <h2 className="text-2xl font-black text-slate-900 tracking-tight">Qualidade do Conteúdo</h2>
-                            <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Diagnóstico da Experiência Pedagógica</p>
-                          </div>
-                        </div>
-                        
-                        {!submittedCourseRoundIds.includes(round.id) ? (
-                          <div className="space-y-8">
-                             {/* Q1: Clareza */}
-                             <div className="bg-emerald-50/50 p-8 rounded-[2.5rem] space-y-6 border border-emerald-100 shadow-sm">
-                                <div className="flex justify-between items-center">
-                                   <div className="flex items-center gap-2">
-                                      <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                                      <label className="text-xs font-black text-emerald-700 uppercase tracking-widest">1. Clareza e Relevância</label>
-                                   </div>
-                                   <span className="text-4xl font-black text-emerald-600">{evaluations[round.id]?.q1.score ?? 10}</span>
-                                </div>
-                                <input type="range" min="0" max="10" className="w-full h-2 bg-emerald-200 rounded-lg appearance-none cursor-pointer accent-emerald-600" value={evaluations[round.id]?.q1.score ?? 10} onChange={(e) => updateEval(round.id, 'q1', 'score', parseInt(e.target.value))} />
-                                <textarea className="w-full bg-white border-0 rounded-2xl p-5 text-sm font-medium focus:ring-2 focus:ring-emerald-200 h-24 shadow-inner" placeholder="O conteúdo foi explicado de forma clara? O que você mais gostou?" value={evaluations[round.id]?.q1.comment || ''} onChange={(e) => updateEval(round.id, 'q1', 'comment', e.target.value)} />
-                             </div>
-
-                             {/* Q2: Dificuldade */}
-                             <div className="bg-rose-50/50 p-8 rounded-[2.5rem] space-y-6 border border-rose-100 shadow-sm">
-                                <div className="flex justify-between items-center">
-                                   <div className="flex items-center gap-2">
-                                      <AlertCircle className="w-4 h-4 text-rose-600" />
-                                      <label className="text-xs font-black text-rose-700 uppercase tracking-widest">2. Fator de Dificuldade</label>
-                                   </div>
-                                   <span className="text-4xl font-black text-rose-600">{evaluations[round.id]?.q2.score ?? 5}</span>
-                                </div>
-                                <input type="range" min="0" max="10" className="w-full h-2 bg-rose-200 rounded-lg appearance-none cursor-pointer accent-rose-600" value={evaluations[round.id]?.q2.score ?? 5} onChange={(e) => updateEval(round.id, 'q2', 'score', parseInt(e.target.value))} />
-                                <textarea className="w-full bg-white border-0 rounded-2xl p-5 text-sm font-medium focus:ring-2 focus:ring-rose-200 h-24 shadow-inner" placeholder="Algum tópico foi excessivamente difícil? Teve alguma barreira no aprendizado?" value={evaluations[round.id]?.q2.comment || ''} onChange={(e) => updateEval(round.id, 'q2', 'comment', e.target.value)} />
-                             </div>
-
-                             {/* Q3: Sugestões */}
-                             <div className="bg-slate-50/80 p-8 rounded-[2.5rem] space-y-4 border border-slate-100 shadow-sm">
-                                <div className="flex items-center gap-2">
-                                   <Lightbulb className="w-4 h-4 text-slate-500" />
-                                   <label className="text-xs font-black text-slate-500 uppercase tracking-widest">3. Sugestões de Melhoria</label>
-                                </div>
-                                <textarea className="w-full bg-white border-0 rounded-2xl p-5 text-sm font-medium focus:ring-2 focus:ring-violet-200 h-32 shadow-inner" placeholder="Como poderíamos tornar a próxima sprint ainda melhor para você?" value={evaluations[round.id]?.q3.comment || ''} onChange={(e) => updateEval(round.id, 'q3', 'comment', e.target.value)} />
-                             </div>
-
-                             <button onClick={() => handleCourseEvalSubmit(round.id)} className="w-full bg-slate-900 hover:bg-violet-600 text-white py-5 rounded-2xl font-black shadow-lg transition-all active:scale-[0.98] flex items-center justify-center gap-3">
-                                <Send className="w-5 h-5" /> Enviar Diagnóstico Completo
-                             </button>
-                          </div>
-                        ) : (
-                          <div className="text-center p-12 bg-emerald-50 text-emerald-700 font-black rounded-[2rem] border border-emerald-100 flex flex-col items-center gap-3 animate-in zoom-in">
-                             <CheckCircle2 className="w-12 h-12" />
-                             Experiência de conteúdo registrada.
-                          </div>
-                        )}
-                    </section>
-
-                    {/* Pares */}
-                    <section className="space-y-8">
-                        <div className="flex items-center gap-4 px-2">
-                          <div className="w-12 h-12 bg-cyan-100 rounded-2xl flex items-center justify-center text-cyan-600">
-                             <MessageSquare className="w-7 h-7" />
-                          </div>
-                          <h2 className="text-2xl font-black text-slate-900 tracking-tight">Avaliação de Pares</h2>
-                        </div>
-                        <div className="grid gap-6">
-                          {tasks.filter(t => t.roundId === round.id).map(task => {
-                            const rcv = users.find(u => u.id === task.receiverId);
-                            return (
-                              <div key={task.id} className="bg-white rounded-[3rem] border border-slate-100 p-8 md:p-10 space-y-6 shadow-soft hover:border-cyan-100 transition-all">
-                                 <div className="flex items-center gap-4">
-                                    <div className="w-12 h-12 bg-slate-50 rounded-2xl flex items-center justify-center text-slate-400 font-black text-lg border border-slate-100 shadow-inner">
-                                      {rcv?.name.charAt(0)}
-                                    </div>
-                                    <h3 className="text-xl font-bold text-slate-900">Feedback para {rcv?.name}</h3>
-                                 </div>
-                                 <textarea id={`task-${task.id}`} className="w-full bg-slate-50 border-0 rounded-[2rem] p-6 h-40 text-slate-700 font-medium focus:ring-2 focus:ring-cyan-200 transition-all shadow-inner" placeholder={`Como você avalia o desempenho do(a) colega?\nDe que forma o(a) colega contribuiu para o seu aprendizado?\nHouve algo que o(a) colega fez que ajudou diretamente no seu aprendizado?\nQual seria um ponto de melhoria para este(a) colega?`} />
-                                 <button onClick={() => handleSubmitPeerFeedback(task.id)} className="w-full bg-slate-900 hover:bg-cyan-600 text-white py-5 rounded-2xl font-black transition-all shadow-soft active:scale-95 flex items-center justify-center gap-2">
-                                    <Send className="w-4 h-4" /> Enviar Feedback Anônimo
-                                 </button>
-                              </div>
-                            );
-                          })}
-                        </div>
-                        {tasks.filter(t => t.roundId === round.id).length === 0 && (
-                          <div className="p-16 text-center bg-white border border-slate-100 rounded-[3rem] text-slate-300 font-black uppercase tracking-[0.2em] italic shadow-soft">
-                             Sua lista de tarefas está em dia! ✨
-                          </div>
-                        )}
-                    </section>
+                    <PeersSection
+                      tasks={tasks}
+                      users={users}
+                      roundId={round.id}
+                      feedbackText={peerFeedbackText}
+                      onChangeText={(taskId, value) =>
+                        setPeerFeedbackText((prev) => ({ ...prev, [taskId]: value }))
+                      }
+                      onSubmit={handleSubmitPeerFeedback}
+                    />
                   </div>
                 )}
               </div>
@@ -376,41 +240,7 @@ const StudentPanel: React.FC = () => {
           })}
         </div>
 
-        <aside className="w-full lg:w-80 shrink-0 order-2 lg:order-1 space-y-8">
-          <div className="flex items-center gap-3 px-2">
-            <History className="w-6 h-6 text-violet-600" />
-            <h2 className="text-2xl font-black text-slate-900 tracking-tight">Meus Relatórios</h2>
-          </div>
-          
-          <div className="relative ml-4 space-y-8 before:absolute before:inset-0 before:ml-2 before:h-full before:w-0.5 before:bg-slate-100">
-            {reports.map((report, index) => {
-              const reportRoundId = Array.isArray(report.roundId) ? report.roundId[0] : report.roundId;
-              const round = rounds.find(r => r.id === reportRoundId);
-              return (
-                <div key={report.id} className="relative flex items-start group">
-                  <div className={`absolute left-0 mt-1.5 w-4 h-4 rounded-full border-4 border-white shadow-soft ring-2 transition-all group-hover:scale-125 ${index === 0 ? 'bg-violet-600 ring-violet-100' : 'bg-slate-300 ring-slate-50'}`}></div>
-                  <div className="ml-10 w-full transform transition-transform group-hover:translate-x-1">
-                    <Link to={`/report/${report.id}`} className="block p-5 rounded-3xl bg-white border border-slate-100 shadow-soft hover:shadow-xl hover:border-violet-200 transition-all">
-                       <div className="flex items-center gap-2 text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">
-                         <CalendarDays className="w-3 h-3" />
-                         {new Date(report.createdAt).toLocaleDateString('pt-BR')}
-                       </div>
-                       <h3 className="text-sm font-black text-slate-900 tracking-tight truncate">{round?.name || 'Sprint Concluída'}</h3>
-                       <div className="mt-3 flex items-center text-[10px] font-black text-violet-600 gap-1 uppercase tracking-wider">
-                         Ver Detalhes <ArrowRight className="w-3 h-3 transition-transform group-hover:translate-x-1" />
-                       </div>
-                    </Link>
-                  </div>
-                </div>
-              );
-            })}
-            {reports.length === 0 && (
-              <div className="ml-10 p-6 bg-slate-50 rounded-2xl border-2 border-dashed border-slate-100 text-xs text-slate-400 font-bold italic leading-relaxed">
-                Aqui aparecerão seus relatórios individuais após cada Sprint.
-              </div>
-            )}
-          </div>
-        </aside>
+        <ReportsTimeline reports={reports} rounds={rounds} />
 
       </div>
     </div>

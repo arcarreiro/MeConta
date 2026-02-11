@@ -6,9 +6,9 @@ import { Store } from './services/store';
 import { Loader2 } from 'lucide-react';
 
 // Components
-import Login from './pages/Login';
+import Login from './pages/Login/index';
 import Dashboard from './pages/Dashboard';
-import AdminPanel from './pages/AdminPanel';
+import AdminPanel from './pages/AdminPanel/index';
 import UserManagement from './pages/UserManagement';
 import MonitorPanel from './pages/MonitorPanel';
 import StudentPanel from './pages/StudentPanel';

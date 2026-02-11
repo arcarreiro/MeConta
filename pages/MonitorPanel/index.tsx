@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
-import { Store } from '../services/store';
-import { Group, User, FeedbackRound, FeedbackAssignment, Role, SynthesizedReport, RoundStatus, CourseEvaluation } from '../types';
+import { Store } from '../../services/store';
+import { Group, User, FeedbackRound, FeedbackAssignment, Role, SynthesizedReport, RoundStatus, CourseEvaluation } from '../../types';
 import {
   Loader2,
   X,
@@ -16,15 +16,15 @@ import {
   Send,
   MessageSquare,
   Trash2,
-  UserCheck,
-  Users
+  UserCheck
 } from 'lucide-react';
-import { synthesizeFeedback, synthesizeMonitorFeedback } from '../services/gemini';
-import { Toast } from '../components/ui/Toast';
-import { DeleteRoundModal } from '../components/modals/DeleteRoundModal';
-import { ConfirmModal } from '../components/modals/ConfirmModal';
-import { TasksQueue } from '../components/monitor/TasksQueue';
-import { ApprovalQueue } from '../components/monitor/ApprovalQueue';
+import { synthesizeFeedback, synthesizeMonitorFeedback } from '../../services/gemini';
+import { Toast } from '../../components/ui/Toast';
+import { DeleteRoundModal } from '../../components/modals/DeleteRoundModal';
+import { ConfirmModal } from '../../components/modals/ConfirmModal';
+import { TasksQueue } from '../../components/monitor/TasksQueue';
+import { ApprovalQueue } from '../../components/monitor/ApprovalQueue';
+import './style.css';
 
 const MonitorPanel: React.FC = () => {
   const me = Store.getCurrentUser();
@@ -86,7 +86,6 @@ const MonitorPanel: React.FC = () => {
   const handleStartRound = async (groupId: string) => {
     if (!newRoundName || !newRoundDeadline) return showToast('Preencha os campos.', 'error');
 
-    // Validação de Sprint em Aberto
     const openRound = activeRounds.find(r => 
       r.groupId === groupId && 
       (r.status === RoundStatus.ACTIVE || r.status === RoundStatus.UNDER_REVIEW)
@@ -270,16 +269,11 @@ const MonitorPanel: React.FC = () => {
   };
 
   const roundBeingDeleted = activeRounds.find(r => r.id === deletingRoundId);
-
-  // Filtros para o Painel Lateral
   const myPendingTasks = assignments.filter(a => a.giverId === me?.id && a.status === 'PENDING' && a.isFromMonitor);
   const reportsForApproval = reports.filter(r => r.type === 'STUDENT' && !r.isApproved);
-
-  // Determina se devemos focar em tarefas ou aprovações
   const hasActiveCollectingRound = activeRounds.some(r => r.status === RoundStatus.ACTIVE);
   const showTasksFirst = hasActiveCollectingRound && myPendingTasks.length > 0;
 
-  // Monitoramento de Engajamento
   const getStudentsWithPendingTasks = (round: FeedbackRound) => {
     const groupStudents = users.filter(u => u.groupId === round.groupId && u.role === Role.STUDENT);
     const roundAssignments = assignments.filter(a => a.roundId === round.id);
@@ -301,7 +295,7 @@ const MonitorPanel: React.FC = () => {
   };
 
   return (
-    <div className="space-y-12 animate-in fade-in duration-500 pb-24 relative">
+    <div className="monitor-page">
       {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
 
       <ConfirmModal
@@ -320,60 +314,76 @@ const MonitorPanel: React.FC = () => {
         loading={loading && !!deletingRoundId}
       />
 
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-        <div>
-          <h1 className="text-4xl font-black text-slate-900 tracking-tighter leading-none">Mentoria</h1>
-          <p className="text-slate-500 font-medium mt-2">Acompanhe o progresso das turmas e revise os relatórios.</p>
+      <div className="monitor-header">
+        <div className="monitor-header__titles">
+          <h1 className="monitor-header__title">Mentoria</h1>
+          <p className="monitor-header__subtitle">Acompanhe o progresso das turmas e revise os relatórios.</p>
         </div>
-        <button onClick={refreshData} className="p-4 bg-white border border-slate-200 rounded-2xl text-slate-400 hover:text-violet-600 transition-all shadow-soft flex items-center gap-2 font-bold text-sm">
-          <RefreshCw className="w-5 h-5" /> Sincronizar Dados
+        <button onClick={refreshData} className="monitor-header__refresh">
+          <RefreshCw className="monitor-header__refresh-icon" /> Sincronizar Dados
         </button>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
-        {/* Lado Esquerdo: Gestão de Sprints */}
-        <div className="space-y-12">
-          <div className="space-y-8">
-            <h2 className="text-xl font-black text-slate-800 flex items-center gap-3 ml-2">
-              <Clock className="w-6 h-6 text-violet-600" /> Atividades das Turmas
+      <div className="monitor-grid">
+        <div className="monitor-grid__left">
+          <div className="monitor-section">
+            <h2 className="monitor-section__title">
+              <Clock className="monitor-section__title-icon monitor-section__title-icon--violet" /> Atividades das Turmas
             </h2>
             {groups.map(group => {
               const groupRounds = activeRounds.filter(r => r.groupId === group.id);
               const hasOpenSprint = groupRounds.some(r => r.status === RoundStatus.ACTIVE || r.status === RoundStatus.UNDER_REVIEW);
               return (
-                <div key={group.id} className="bg-white p-10 rounded-[3rem] border border-slate-100 shadow-soft space-y-8">
-                  <div className="flex items-center justify-between">
-                    <h3 className="font-black text-slate-900 text-2xl tracking-tight">{group.name}</h3>
+                <div key={group.id} className="monitor-card">
+                  <div className="monitor-card__header">
+                    <h3 className="monitor-card__group-name">{group.name}</h3>
                     <button
                       onClick={() => setConfigGroupId(configGroupId === group.id ? null : group.id)}
-                      className={`p-3 rounded-2xl transition-all shadow-soft border ${configGroupId === group.id ? 'bg-slate-900 text-white border-slate-900' : 'bg-white text-slate-400 border-slate-100 hover:text-violet-600 hover:border-violet-100'}`}
+                      className={`monitor-card__toggle-btn ${configGroupId === group.id ? 'monitor-card__toggle-btn--active' : ''}`}
                     >
-                      {configGroupId === group.id ? <X className="w-6 h-6" /> : <Plus className="w-6 h-6" />}
+                      {configGroupId === group.id ? <X /> : <Plus />}
                     </button>
                   </div>
 
                   {configGroupId === group.id && (
-                    <div className="bg-slate-50 p-8 rounded-[2rem] space-y-4 animate-in zoom-in-95 border border-slate-100 shadow-inner">
-                      <div className="flex items-center justify-between px-1">
-                        <p className="text-xs font-black text-slate-400 uppercase tracking-widest">Lançar Nova Sprint</p>
+                    <div className="monitor-form">
+                      <div className="monitor-form__header">
+                        <p className="monitor-form__subtitle">Lançar Nova Sprint</p>
                         {hasOpenSprint && (
-                          <span className="text-[10px] font-black text-rose-500 uppercase flex items-center gap-1 animate-pulse">
-                            <AlertCircle className="w-3 h-3" /> Turma já possui sprint ativa
+                          <span className="monitor-form__alert">
+                            <AlertCircle className="monitor-form__alert-icon" /> Turma já possui sprint ativa
                           </span>
                         )}
                       </div>
-                      <input type="text" placeholder="Ex: Sprint 01 - Onboarding" className="w-full rounded-2xl px-6 py-4 border-0 shadow-soft font-bold focus:ring-2 focus:ring-violet-500" value={newRoundName} onChange={(e) => setNewRoundName(e.target.value)} disabled={hasOpenSprint} />
-                      <div className="space-y-2">
-                        <label className="text-[10px] font-black text-slate-300 uppercase ml-1">Data de Encerramento</label>
-                        <input type="date" className="w-full rounded-2xl px-6 py-4 border-0 shadow-soft font-bold focus:ring-2 focus:ring-violet-500" value={newRoundDeadline} onChange={(e) => setNewRoundDeadline(e.target.value)} disabled={hasOpenSprint} />
+                      <input 
+                        type="text" 
+                        placeholder="Ex: Sprint 01 - Onboarding" 
+                        className="monitor-form__input" 
+                        value={newRoundName} 
+                        onChange={(e) => setNewRoundName(e.target.value)} 
+                        disabled={hasOpenSprint} 
+                      />
+                      <div className="monitor-form__field">
+                        <label className="monitor-form__label">Data de Encerramento</label>
+                        <input 
+                          type="date" 
+                          className="monitor-form__input" 
+                          value={newRoundDeadline} 
+                          onChange={(e) => setNewRoundDeadline(e.target.value)} 
+                          disabled={hasOpenSprint} 
+                        />
                       </div>
-                      <button onClick={() => handleStartRound(group.id)} disabled={hasOpenSprint} className="w-full bg-violet-600 hover:bg-violet-700 text-white font-black py-5 rounded-2xl shadow-brand transition-all active:scale-95 disabled:opacity-30 disabled:grayscale">
+                      <button 
+                        onClick={() => handleStartRound(group.id)} 
+                        disabled={hasOpenSprint} 
+                        className="monitor-form__submit"
+                      >
                         {hasOpenSprint ? 'Finalize a sprint anterior primeiro' : 'Lançar para Alunos'}
                       </button>
                     </div>
                   )}
 
-                  <div className="space-y-4">
+                  <div className="monitor-rounds-list">
                     {groupRounds.map(round => {
                       const roundAssignments = assignments.filter(a => a.roundId === round.id && !a.isToMonitor);
                       const submittedCount = roundAssignments.filter(s => s.status === 'SUBMITTED').length;
@@ -383,94 +393,87 @@ const MonitorPanel: React.FC = () => {
                       const isActive = round.status === RoundStatus.ACTIVE;
 
                       return (
-                        <div key={round.id} className={`p-6 rounded-3xl border transition-all ${isCompleted ? 'bg-emerald-50 border-emerald-100 opacity-70' : isReview ? 'bg-white border-amber-200 shadow-md' : 'bg-slate-50 border-transparent'}`}>
-                          <div className="flex justify-between items-center mb-4">
-                            <div className="flex flex-col">
-                              <div className="flex items-center gap-2">
-                                <span className="font-black text-slate-900 text-lg tracking-tight">{round.name}</span>
+                        <div key={round.id} className={`monitor-round-card ${isCompleted ? 'monitor-round-card--completed' : isReview ? 'monitor-round-card--review' : 'monitor-round-card--active'}`}>
+                          <div className="monitor-round-card__main">
+                            <div className="monitor-round-card__info">
+                              <div className="monitor-round-card__title-row">
+                                <span className="monitor-round-card__name">{round.name}</span>
                                 {!isCompleted && (
                                   <button
                                     onClick={() => setDeletingRoundId(round.id)}
-                                    className="p-1.5 text-slate-300 hover:text-rose-500 transition-colors"
+                                    className="monitor-round-card__delete"
                                     title="Excluir Sprint"
                                   >
-                                    <Trash2 className="w-4 h-4" />
+                                    <Trash2 size={16} />
                                   </button>
                                 )}
                               </div>
-                              <span className="text-[10px] font-bold text-slate-400 mt-0.5">{submittedCount} de {roundAssignments.length} entregas realizadas</span>
+                              <span className="monitor-round-card__meta">{submittedCount} de {roundAssignments.length} entregas realizadas</span>
                             </div>
-                            <span className={`text-[10px] font-black px-3 py-1.5 rounded-full uppercase flex items-center gap-2 ${isCompleted ? 'bg-emerald-100 text-emerald-700' : isReview ? 'bg-amber-100 text-amber-700' : 'bg-slate-200 text-slate-600'}`}>
-                              {isCompleted ? <CheckCircle className="w-3.5 h-3.5" /> : <Clock className="w-3.5 h-3.5" />}
+                            <span className={`monitor-status-badge ${isCompleted ? 'monitor-status-badge--completed' : isReview ? 'monitor-status-badge--review' : 'monitor-status-badge--active'}`}>
+                              {isCompleted ? <CheckCircle size={14} /> : <Clock size={14} />}
                               {isCompleted ? 'Finalizada' : isReview ? 'Em Revisão' : 'Coletando'}
                             </span>
                           </div>
 
                           {isActive && (
-                            <div className="pt-4 border-t border-slate-100 flex justify-end">
+                            <div className="monitor-round-card__footer">
                               <button
                                 onClick={() => handleGenerateAllReports(round.id)}
                                 disabled={batchProcessing === round.id || submittedCount === 0}
-                                className="bg-slate-900 text-white px-6 py-3 rounded-xl text-xs font-black hover:bg-violet-600 transition-all flex items-center gap-2 shadow-soft disabled:opacity-30"
+                                className="monitor-round-card__action-btn"
                               >
-                                {batchProcessing === round.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />} Consolidar IA
+                                {batchProcessing === round.id ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />} Consolidar IA
                               </button>
                             </div>
                           )}
                         </div>
                       );
                     })}
-                    {groupRounds.length === 0 && <div className="py-10 text-center text-slate-300 font-bold italic bg-slate-50 rounded-3xl border border-dashed border-slate-200">Aguardando lançamento de sprints.</div>}
+                    {groupRounds.length === 0 && <div className="monitor-empty-state">Aguardando lançamento de sprints.</div>}
                   </div>
                 </div>
               );
             })}
           </div>
 
-          {/* MONITORAMENTO DE ENGAJAMENTO (COBRANÇA) */}
-          <section className="space-y-8 animate-in slide-in-from-bottom-6 duration-700">
-            <h2 className="text-xl font-black text-slate-800 flex items-center gap-3 ml-2">
-              <UserCheck className="w-6 h-6 text-rose-600" /> Cobrança de Preenchimento
+          <section className="monitor-section">
+            <h2 className="monitor-section__title">
+              <UserCheck className="monitor-section__title-icon monitor-section__title-icon--rose" /> Cobrança de Preenchimento
             </h2>
-            <div className="bg-white rounded-[3rem] border border-slate-100 shadow-soft overflow-hidden">
-              <div className="p-8 border-b border-slate-50 bg-rose-50/30">
-                <p className="text-sm text-rose-900 font-medium">Alunos que ainda possuem tarefas obrigatórias pendentes nas sprints ativas.</p>
+            <div className="monitor-collection-card">
+              <div className="monitor-collection-card__header">
+                <p className="monitor-collection-card__subtitle">Alunos com tarefas pendentes nas sprints ativas.</p>
               </div>
-              <div className="divide-y divide-slate-50">
+              <div className="monitor-collection-list">
                 {activeRounds.filter(r => r.status === RoundStatus.ACTIVE).map(round => {
                   const pendings = getStudentsWithPendingTasks(round);
                   if (pendings.length === 0) return null;
 
                   return (
-                    <div key={round.id} className="p-8 space-y-6">
-                      <div className="flex items-center gap-2">
-                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Sprint:</span>
-                        <span className="text-sm font-black text-slate-900">{round.name}</span>
+                    <div key={round.id} className="monitor-collection-group">
+                      <div className="monitor-collection-group__header">
+                        <span className="monitor-collection-group__label">Sprint:</span>
+                        <span className="monitor-collection-group__name">{round.name}</span>
                       </div>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="monitor-collection-grid">
                         {pendings.map(({ student, peerPendingCount, missingMonitor, missingCourse }) => (
-                          <div key={student.id} className="p-4 bg-slate-50 rounded-2xl border border-slate-100 flex items-center justify-between group hover:border-rose-200 transition-all">
-                            <div className="flex items-center gap-3 min-w-0">
-                              <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center text-slate-300 border border-slate-100 shadow-sm shrink-0 overflow-hidden">
-                                {student.photoUrl ? <img src={student.photoUrl} className="w-full h-full object-cover" /> : <UserIcon className="w-5 h-5" />}
+                          <div key={student.id} className="monitor-student-pending-card">
+                            <div className="monitor-student-pending-card__info">
+                              <div className="monitor-student-avatar">
+                                {student.photoUrl ? <img src={student.photoUrl} className="monitor-student-avatar__img" /> : <UserIcon size={20} />}
                               </div>
-                              <div className="min-w-0">
-                                <div className="text-sm font-bold text-slate-900 truncate">{student.name}</div>
-                                <div className="flex gap-1.5 mt-1 flex-wrap">
-                                  {peerPendingCount > 0 && (
-                                    <span className="text-[8px] font-black bg-rose-100 text-rose-700 px-1.5 py-0.5 rounded uppercase">{peerPendingCount} Pares</span>
-                                  )}
-                                  {missingMonitor && (
-                                    <span className="text-[8px] font-black bg-violet-100 text-violet-700 px-1.5 py-0.5 rounded uppercase">Mentoria</span>
-                                  )}
-                                  {missingCourse && (
-                                    <span className="text-[8px] font-black bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded uppercase">Curso</span>
-                                  )}
+                              <div className="monitor-student-pending-card__details">
+                                <div className="monitor-student-pending-card__name">{student.name}</div>
+                                <div className="monitor-student-pending-card__tags">
+                                  {peerPendingCount > 0 && <span className="monitor-tag monitor-tag--rose">{peerPendingCount} Pares</span>}
+                                  {missingMonitor && <span className="monitor-tag monitor-tag--violet">Mentoria</span>}
+                                  {missingCourse && <span className="monitor-tag monitor-tag--amber">Curso</span>}
                                 </div>
                               </div>
                             </div>
-                            <button onClick={() => showToast(`Cobrança enviada para ${student.name.split(' ')[0]}!`)} className="p-2 bg-white text-rose-600 hover:bg-rose-600 hover:text-white rounded-lg transition-all shadow-sm opacity-0 group-hover:opacity-100">
-                              <Send className="w-4 h-4" />
+                            <button onClick={() => showToast(`Cobrança enviada para ${student.name.split(' ')[0]}!`)} className="monitor-student-pending-card__send-btn">
+                              <Send size={16} />
                             </button>
                           </div>
                         ))}
@@ -479,11 +482,11 @@ const MonitorPanel: React.FC = () => {
                   );
                 })}
                 {activeRounds.filter(r => r.status === RoundStatus.ACTIVE).every(r => getStudentsWithPendingTasks(r).length === 0) && (
-                  <div className="p-20 text-center space-y-4">
-                    <div className="w-16 h-16 bg-emerald-50 text-emerald-500 rounded-full flex items-center justify-center mx-auto">
-                      <CheckCircle2 className="w-8 h-8" />
+                  <div className="monitor-all-clear">
+                    <div className="monitor-all-clear__icon-wrapper">
+                      <CheckCircle2 size={32} />
                     </div>
-                    <p className="text-slate-400 font-bold uppercase text-xs tracking-widest">Todos os alunos estão em dia!</p>
+                    <p className="monitor-all-clear__text">Todos os alunos estão em dia!</p>
                   </div>
                 )}
               </div>
@@ -491,8 +494,7 @@ const MonitorPanel: React.FC = () => {
           </section>
         </div>
 
-        {/* Lado Direito Contextual: Tarefas (Coleta) ou Aprovações (Revisão) */}
-        <div className="space-y-8">
+        <div className="monitor-grid__right">
           {showTasksFirst ? (
             <TasksQueue
               tasks={myPendingTasks}

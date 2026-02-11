@@ -1,6 +1,8 @@
+
 import React from 'react';
 import { SynthesizedReport, FeedbackRound, User } from '../../../types';
 import { Loader2, ShieldCheck, ClipboardCheck, User as UserIcon, ChevronDown, RefreshCw } from 'lucide-react';
+import './style.css';
 
 interface ApprovalQueueProps {
   reports: SynthesizedReport[];
@@ -28,17 +30,17 @@ export const ApprovalQueue: React.FC<ApprovalQueueProps> = ({
   onApproveClick,
 }) => {
   return (
-    <>
-      <h2 className="text-xl font-black text-slate-800 flex items-center gap-3 ml-2">
-        <ShieldCheck className="w-6 h-6 text-emerald-600" /> Fila de Aprovação
+    <div className="approval-queue">
+      <h2 className="approval-queue-title">
+        <ShieldCheck className="title-icon icon-emerald" /> Fila de Aprovação
       </h2>
-      <div className="bg-white rounded-[3rem] border border-slate-100 shadow-soft overflow-hidden min-h-[600px] flex flex-col">
-        <div className="p-8 border-b border-slate-50 bg-slate-50/50">
-          <p className="text-sm text-slate-500 font-medium">
+      <div className="approval-container">
+        <div className="approval-header">
+          <p className="approval-subtitle">
             Revise as sínteses geradas pela inteligência artificial antes de liberar para os alunos.
           </p>
         </div>
-        <div className="flex-1 overflow-y-auto">
+        <div className="approval-list">
           {reports.map((report) => {
             const student = users.find((u) => u.id === report.targetId);
             const roundId = Array.isArray(report.roundId) ? report.roundId[0] : report.roundId;
@@ -48,40 +50,36 @@ export const ApprovalQueue: React.FC<ApprovalQueueProps> = ({
             return (
               <div
                 key={report.id}
-                className="p-6 border-b border-slate-50 transition-all hover:bg-slate-50/50 group"
+                className="approval-item"
               >
-                <div className="flex items-center justify-between gap-4">
-                  <div className="flex items-center gap-4 flex-1 min-w-0">
-                    <div className="w-12 h-12 bg-slate-100 rounded-2xl flex items-center justify-center shrink-0 border border-slate-200 overflow-hidden shadow-inner">
+                <div className="item-header">
+                  <div className="item-info">
+                    <div className="avatar-wrapper">
                       {student?.photoUrl ? (
-                        <img src={student.photoUrl} className="w-full h-full object-cover" />
+                        <img src={student.photoUrl} className="avatar-img" />
                       ) : (
-                        <UserIcon className="text-slate-300 w-6 h-6" />
+                        <UserIcon className="avatar-placeholder" />
                       )}
                     </div>
-                    <div className="min-w-0">
-                      <div className="font-black text-slate-900 truncate">{student?.name}</div>
-                      <div className="text-[10px] font-black text-violet-500 uppercase tracking-[0.1em]">
+                    <div className="item-details">
+                      <div className="student-name">{student?.name}</div>
+                      <div className="round-name">
                         {round?.name}
                       </div>
                     </div>
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="item-actions">
                     <button
                       onClick={() => onToggleExpand(isExpanded ? null : report.id)}
-                      className={`p-3 rounded-xl transition-all ${
-                        isExpanded ? 'bg-slate-900 text-white' : 'text-slate-400 hover:bg-slate-100'
-                      }`}
+                      className={`expand-btn ${isExpanded ? 'expand-btn--active' : ''}`}
                     >
                       <ChevronDown
-                        className={`w-5 h-5 transition-transform ${
-                          isExpanded ? 'rotate-180' : ''
-                        }`}
+                        className={`chevron-icon ${isExpanded ? 'chevron-icon--rotated' : ''}`}
                       />
                     </button>
                     <button
                       onClick={() => onApproveClick(report.id, roundId)}
-                      className="bg-emerald-50 text-emerald-700 px-5 py-3 rounded-xl text-xs font-black hover:bg-emerald-600 hover:text-white transition-all shadow-sm border border-emerald-100 active:scale-95"
+                      className="approve-btn"
                     >
                       Aprovar
                     </button>
@@ -89,29 +87,29 @@ export const ApprovalQueue: React.FC<ApprovalQueueProps> = ({
                 </div>
 
                 {isExpanded && (
-                  <div className="mt-8 space-y-6 animate-in slide-in-from-top-4 duration-300">
-                    <div className="p-8 bg-white border border-slate-100 rounded-[2rem] text-sm text-slate-600 leading-relaxed italic whitespace-pre-wrap shadow-inner font-medium">
+                  <div className="expanded-content">
+                    <div className="report-content-card">
                       {report.content}
                     </div>
-                    <div className="space-y-4">
-                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-2">
+                    <div className="refinement-section">
+                      <label className="refinement-label">
                         Sugestões de Ajuste (IA)
                       </label>
                       <textarea
                         placeholder="Ex: Tente ser mais motivador ou foque menos em detalhes técnicos..."
-                        className="w-full rounded-2xl border-0 bg-slate-50 p-6 text-sm font-semibold focus:ring-2 focus:ring-violet-500 h-28 shadow-soft transition-all"
+                        className="refinement-textarea"
                         value={refinementText[report.id] || ''}
                         onChange={(e) => onChangeRefinement(report.id, e.target.value)}
                       />
                       <button
                         onClick={() => onRefine(report)}
                         disabled={refiningId === report.id}
-                        className="w-full py-4 bg-slate-900 text-white rounded-2xl text-xs font-black hover:bg-violet-600 transition-all flex items-center justify-center gap-3 shadow-soft active:scale-95 disabled:opacity-50"
+                        className="refine-submit-btn"
                       >
                         {refiningId === report.id ? (
-                          <Loader2 className="w-5 h-5 animate-spin" />
+                          <Loader2 className="spinner-xs" />
                         ) : (
-                          <RefreshCw className="w-5 h-5" />
+                          <RefreshCw className="icon-xs" />
                         )}{' '}
                         Refinar Síntese
                       </button>
@@ -122,18 +120,17 @@ export const ApprovalQueue: React.FC<ApprovalQueueProps> = ({
             );
           })}
           {reports.length === 0 && (
-            <div className="flex-1 flex flex-col items-center justify-center py-20 px-10 text-center space-y-4 opacity-30 group">
-              <div className="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center transition-transform group-hover:scale-110 duration-500">
-                <ClipboardCheck className="w-10 h-10 text-slate-400" />
+            <div className="empty-state">
+              <div className="empty-icon-wrapper">
+                <ClipboardCheck className="empty-icon" />
               </div>
-              <p className="text-lg font-black text-slate-400 uppercase tracking-tighter">
+              <p className="empty-text">
                 Tudo em dia por aqui
               </p>
             </div>
           )}
         </div>
       </div>
-    </>
+    </div>
   );
 };
-

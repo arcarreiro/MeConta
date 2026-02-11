@@ -1,0 +1,145 @@
+
+.peers-section {
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+}
+
+.peers-header {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding-left: 0.5rem;
+  padding-right: 0.5rem;
+}
+
+.icon-box {
+  width: 3rem;
+  height: 3rem;
+  background-color: #ecfeff;
+  color: #0891b2;
+  border-radius: 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.icon-md { width: 1.75rem; height: 1.75rem; }
+.icon-xs { width: 1rem; height: 1rem; }
+
+.peers-title {
+  font-size: 1.5rem;
+  font-weight: 900;
+  color: #0f172a;
+  letter-spacing: -0.025em;
+}
+
+.peers-grid {
+  display: grid;
+  gap: 1.5rem;
+}
+
+.peer-card {
+  background-color: #ffffff;
+  border-radius: 3rem;
+  border: 1px solid #f1f5f9;
+  padding: 2rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  transition: all 0.2s;
+}
+
+@media (min-width: 768px) {
+  .peer-card {
+    padding: 2.5rem;
+  }
+}
+
+.peer-card:hover {
+  border-color: #cffafe;
+}
+
+.peer-info {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.peer-initial {
+  width: 3rem;
+  height: 3rem;
+  background-color: #f8fafc;
+  border-radius: 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #94a3b8;
+  font-weight: 900;
+  font-size: 1.125rem;
+  border: 1px solid #f1f5f9;
+  box-shadow: inset 0 2px 4px 0 rgba(0, 0, 0, 0.05);
+}
+
+.peer-name {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.peer-textarea {
+  width: 100%;
+  background-color: #f8fafc;
+  border: none;
+  border-radius: 2rem;
+  padding: 1.5rem;
+  height: 10rem;
+  color: #334155;
+  font-weight: 500;
+  transition: all 0.2s;
+  box-shadow: inset 0 2px 4px 0 rgba(0, 0, 0, 0.05);
+  outline: none;
+}
+
+.peer-textarea:focus {
+  box-shadow: 0 0 0 2px #cffafe;
+}
+
+.peer-submit-btn {
+  width: 100%;
+  background-color: #0f172a;
+  color: #ffffff;
+  padding-top: 1.25rem;
+  padding-bottom: 1.25rem;
+  border-radius: 1.25rem;
+  font-weight: 900;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+}
+
+.peer-submit-btn:hover {
+  background-color: #0891b2;
+}
+
+.peer-submit-btn:active {
+  transform: scale(0.95);
+}
+
+.empty-tasks-msg {
+  padding: 4rem;
+  text-align: center;
+  background-color: #ffffff;
+  border: 1px solid #f1f5f9;
+  border-radius: 3rem;
+  color: #cbd5e1;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.2em;
+  font-style: italic;
+}

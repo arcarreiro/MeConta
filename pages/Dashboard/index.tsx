@@ -1,8 +1,9 @@
 
 import React from 'react';
 import { Navigate } from 'react-router-dom';
-import { Store } from '../services/store';
-import { Role } from '../types';
+import { Store } from '../../services/store';
+import { Role } from '../../types';
+import './style.css';
 
 const Dashboard: React.FC = () => {
   const user = Store.getCurrentUser();

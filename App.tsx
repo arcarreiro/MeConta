@@ -7,18 +7,18 @@ import { Loader2 } from 'lucide-react';
 
 // Components
 import Login from './pages/Login/index';
-import Dashboard from './pages/Dashboard';
+import Dashboard from './pages/Dashboard/index';
 import AdminPanel from './pages/AdminPanel/index';
-import UserManagement from './pages/UserManagement';
-import MonitorPanel from './pages/MonitorPanel';
-import StudentPanel from './pages/StudentPanel';
-import ReportView from './pages/ReportView';
-import Profile from './pages/Profile';
-import MonitorReportView from './pages/MonitorReportView';
-import TrajectoryReportView from './pages/TrajectoryReportView';
-import CourseReportView from './pages/CourseReportView';
-import StudentDetails from './pages/StudentDetails';
-import { PageLayout } from './components/Layout/PageLayout';
+import UserManagement from './pages/UserManagement/index';
+import MonitorPanel from './pages/MonitorPanel/index';
+import StudentPanel from './pages/StudentPanel/index';
+import ReportView from './pages/ReportView/index';
+import Profile from './pages/Profile/index';
+import MonitorReportView from './pages/MonitorReportView/index';
+import TrajectoryReportView from './pages/TrajectoryReportView/index';
+import CourseReportView from './pages/CourseReportView/index';
+import StudentDetails from './pages/StudentDetails/index';
+import { PageLayout } from './components/Layout/PageLayout/index';
 
 
 const PrivateRoute = ({ children, allowedRoles }: { children?: React.ReactNode, allowedRoles?: Role[] }) => {

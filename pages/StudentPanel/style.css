@@ -1,0 +1,273 @@
+
+.student-page {
+  max-width: 80rem;
+  margin-left: auto;
+  margin-right: auto;
+  padding-left: 1rem;
+  padding-right: 1rem;
+  overflow-x: hidden;
+  animation: fade-in 0.7s ease;
+}
+
+@media (min-width: 768px) {
+  .student-page {
+    padding-left: 1.5rem;
+    padding-right: 1.5rem;
+  }
+}
+
+.student-layout {
+  display: flex;
+  flex-direction: column;
+  gap: 2.5rem;
+}
+
+@media (min-width: 1024px) {
+  .student-layout {
+    flex-direction: row;
+    gap: 4rem;
+  }
+}
+
+.student-main {
+  flex: 1;
+  order: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2.5rem;
+}
+
+@media (min-width: 1024px) {
+  .student-main {
+    order: 2;
+  }
+}
+
+.student-welcome {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.student-welcome__title {
+  font-size: 1.875rem;
+  font-weight: 900;
+  color: #0f172a;
+  letter-spacing: -0.025em;
+}
+
+@media (min-width: 768px) {
+  .student-welcome__title {
+    font-size: 2.25rem;
+  }
+}
+
+.student-welcome__subtitle {
+  color: #64748b;
+  font-weight: 500;
+}
+
+.student-no-rounds {
+  background-color: white;
+  border-radius: 3rem;
+  border: 2px dashed #e2e8f0;
+  padding: 3rem;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05);
+  transition: border-color 0.2s ease;
+}
+
+@media (min-width: 768px) {
+  .student-no-rounds {
+    padding: 5rem;
+  }
+}
+
+.student-no-rounds:hover {
+  border-color: #ddd6fe;
+}
+
+.student-no-rounds__icon-wrapper {
+  width: 6rem;
+  height: 6rem;
+  background-color: #f8fafc;
+  border-radius: 9999px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-left: auto;
+  margin-right: auto;
+  transition: transform 0.5s ease;
+}
+
+.student-no-rounds:hover .student-no-rounds__icon-wrapper {
+  transform: scale(1.1);
+}
+
+.student-no-rounds__icon {
+  width: 3rem;
+  height: 3rem;
+  color: #cbd5e1;
+}
+
+.student-no-rounds:hover .student-no-rounds__icon {
+  color: #a78bfa;
+}
+
+.student-no-rounds__content {
+  max-width: 28rem;
+  margin-left: auto;
+  margin-right: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.student-no-rounds__title {
+  font-size: 1.5rem;
+  font-weight: 900;
+  color: #1e293b;
+  letter-spacing: -0.025em;
+}
+
+.student-no-rounds__subtitle {
+  color: #64748b;
+  font-weight: 500;
+  line-height: 1.625;
+}
+
+.student-round-container {
+  display: flex;
+  flex-direction: column;
+  gap: 2.5rem;
+}
+
+.student-status-banner {
+  padding: 2rem;
+  border-radius: 2.5rem;
+  border: 2px solid transparent;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05);
+  transition: all 0.5s ease;
+}
+
+@media (min-width: 768px) {
+  .student-status-banner {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+  }
+}
+
+.student-status-banner--pending {
+  background-color: #ecfdf5;
+  border-color: #d1fae5;
+  color: #064e3b;
+}
+
+.student-status-banner--review {
+  background-color: #fffbeb;
+  border-color: #fef3c7;
+  color: #78350f;
+}
+
+.student-status-banner--active {
+  background-color: #f5f3ff;
+  border-color: #ede9fe;
+  color: #4c1d95;
+}
+
+.student-status-banner__content {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+}
+
+.student-status-banner__icon-wrapper {
+  width: 4rem;
+  height: 4rem;
+  background-color: white;
+  border-radius: 1.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05);
+  flex-shrink: 0;
+}
+
+.student-status-banner__icon-wrapper svg {
+  width: 2rem;
+  height: 2rem;
+}
+
+.student-status-banner--pending .student-status-banner__icon-wrapper { color: #10b981; }
+.student-status-banner--review .student-status-banner__icon-wrapper { color: #d97706; }
+.student-status-banner--active .student-status-banner__icon-wrapper { color: #7c3aed; }
+
+.student-status-banner__label {
+  font-weight: 900;
+  font-size: 0.875rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  opacity: 0.6;
+  margin-bottom: 0.25rem;
+}
+
+.student-status-banner__title {
+  font-size: 1.25rem;
+  font-weight: 700;
+  letter-spacing: -0.025em;
+}
+
+.student-round-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 2.5rem;
+  animation: slide-in-from-top-4 0.5s ease;
+}
+
+.student-loading {
+  min-height: 60vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+}
+
+.student-loading__icon {
+  width: 3rem;
+  height: 3rem;
+  animation: spin 1s linear infinite;
+  color: #7c3aed;
+}
+
+.student-loading__text {
+  color: #94a3b8;
+  font-weight: 700;
+  animation: pulse 2s infinite;
+}
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slide-in-from-top-4 {
+  from { transform: translateY(-1rem); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}

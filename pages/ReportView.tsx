@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { Store } from '../services/store';
 import { Mail, ArrowLeft, Printer, Sparkles } from 'lucide-react';
-import { BrandLogo } from '../App';
+import { BrandLogo } from '../components/BrandLogo';
 import { User, SynthesizedReport, Group } from '../types';
 
 const ReportView: React.FC = () => {

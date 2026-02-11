@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { Store } from '../services/store';
 import { Role } from '../types';
 import { Mail, Lock, User as UserIcon, Loader2, AlertCircle, Eye, EyeOff, CheckCircle2 } from 'lucide-react';
-import { BrandLogo } from '../App';
+import { BrandLogo } from '../components/BrandLogo';
 
 const Login: React.FC = () => {
   const [isLogin, setIsLogin] = useState(true);

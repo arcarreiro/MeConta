@@ -177,6 +177,12 @@ export class Store {
     }).eq('id', u.id);
   }
 
+   static async updatePassword(newPassword: string): Promise<{ success: boolean; error?: string }> {
+    const { error } = await supabase.auth.updateUser({ password: newPassword });
+    if (error) return { success: false, error: error.message };
+    return { success: true };
+  }
+
   static async updateUserRole(userId: string, role: Role) {
     const { error } = await supabase.from('profiles').update({ role }).eq('id', userId);
     if (error) throw error;
@@ -197,27 +203,100 @@ export class Store {
   }
 
   static async startRound(groupId: string, name: string, deadline: number) {
-    const { data: round, error } = await supabase.from('rounds').insert({ group_id: groupId, name, deadline, status: RoundStatus.ACTIVE }).select().single();
+    // 1. Criar a rodada
+    const { data: round, error } = await supabase.from('rounds').insert({ 
+      group_id: groupId, 
+      name, 
+      deadline, 
+      status: RoundStatus.ACTIVE 
+    }).select().single();
     if (error) throw error;
 
+    // 2. Obter alunos e monitores da turma
     const { data: students } = await supabase.from('profiles').select('id').eq('group_id', groupId).eq('role', Role.STUDENT);
     const { data: group } = await supabase.from('groups').select('monitor_ids').eq('id', groupId).single();
     
-    if (students && students.length > 0) {
-      const assignments: any[] = [];
-      const monitorIds = group?.monitor_ids || [];
-      students.forEach((student: any) => {
-        monitorIds.forEach((mId: string) => {
-          assignments.push({ round_id: round.id, giver_id: mId, receiver_id: student.id, is_from_monitor: true, is_to_monitor: false, status: 'PENDING' });
-        });
-        const peers = students.filter((s: any) => s.id !== student.id);
-        const selected = [...peers].sort(() => 0.5 - Math.random()).slice(0, 2);
-        selected.forEach((peer: any) => {
-          assignments.push({ round_id: round.id, giver_id: student.id, receiver_id: peer.id, is_from_monitor: false, is_to_monitor: false, status: 'PENDING' });
+    if (!students || students.length === 0) return round;
+
+    const studentIds = students.map(s => s.id);
+    const monitorIds = group?.monitor_ids || [];
+    const assignmentsToInsert: any[] = [];
+
+    // --- PARTE A: MONITORES PARA ALUNOS ---
+    // Cada monitor avalia cada aluno (Monitor -> Student)
+    students.forEach((student: any) => {
+      monitorIds.forEach((mId: string) => {
+        assignmentsToInsert.push({ 
+          round_id: round.id, 
+          giver_id: mId, 
+          receiver_id: student.id, 
+          is_from_monitor: true, 
+          is_to_monitor: false, 
+          status: 'PENDING' 
         });
       });
-      await supabase.from('assignments').insert(assignments);
+    });
+
+    // --- PARTE B: ALUNOS PARA ALUNOS (BALANÇADO + HISTÓRICO) ---
+    // Cada aluno dá 2 e RECEBE exatamente 2 (Student -> Student)
+    
+    // Buscar histórico de pares para tentar não repetir
+    const { data: pastAssignments } = await supabase
+      .from('assignments')
+      .select('giver_id, receiver_id')
+      .in('giver_id', studentIds)
+      .in('receiver_id', studentIds)
+      .eq('is_from_monitor', false)
+      .eq('is_to_monitor', false);
+    
+    const pastPairsSet = new Set(pastAssignments?.map(a => `${a.giver_id}-${a.receiver_id}`));
+
+    const n = students.length;
+    const numFeedbacksPerStudent = Math.min(2, n - 1);
+    
+    let bestPeerAssignments: any[] = [];
+    let minHistoryScore = Infinity;
+
+    // Tentar 50 combinações diferentes para minimizar repetições históricas
+    for (let attempt = 0; attempt < 50; attempt++) {
+      const shuffled = [...students].sort(() => Math.random() - 0.5);
+      const currentAttempt: any[] = [];
+      let currentHistoryScore = 0;
+
+      for (let i = 0; i < n; i++) {
+        const giver = shuffled[i];
+        for (let j = 1; j <= numFeedbacksPerStudent; j++) {
+          const receiver = shuffled[(i + j) % n];
+          const pairKey = `${giver.id}-${receiver.id}`;
+          
+          if (pastPairsSet.has(pairKey)) {
+            currentHistoryScore++;
+          }
+
+          currentAttempt.push({
+            round_id: round.id,
+            giver_id: giver.id,
+            receiver_id: receiver.id,
+            is_from_monitor: false,
+            is_to_monitor: false,
+            status: 'PENDING'
+          });
+        }
+      }
+
+      if (currentHistoryScore < minHistoryScore) {
+        minHistoryScore = currentHistoryScore;
+        bestPeerAssignments = currentAttempt;
+        if (minHistoryScore === 0) break; // Combinação perfeita encontrada
+      }
     }
+
+    // Unificar e inserir no banco
+    const allAssignments = [...assignmentsToInsert, ...bestPeerAssignments];
+    if (allAssignments.length > 0) {
+      await supabase.from('assignments').insert(allAssignments);
+    }
+
     return round;
   }
 

@@ -2,7 +2,21 @@
 import React, { useState } from 'react';
 import { Store } from '../services/store';
 import { User, Role } from '../types';
-import { Save, Upload, FileText, Camera, User as UserIcon, GraduationCap, ShieldCheck, Mail, Key } from 'lucide-react';
+import { 
+  Save, 
+  Upload, 
+  FileText, 
+  Camera, 
+  User as UserIcon, 
+  GraduationCap, 
+  ShieldCheck, 
+  Mail, 
+  Key, 
+  Eye, 
+  EyeOff, 
+  CheckCircle,
+  Loader2
+} from 'lucide-react';
 
 const Profile: React.FC = () => {
   const user = Store.getCurrentUser();
@@ -13,6 +27,11 @@ const Profile: React.FC = () => {
     photoUrl: user?.photoUrl || '',
     resumeUrl: user?.resumeUrl || '',
   });
+
+  const [newPassword, setNewPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [isUpdatingPassword, setIsUpdatingPassword] = useState(false);
+  const [isSavingProfile, setIsSavingProfile] = useState(false);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>, field: 'photoUrl' | 'resumeUrl') => {
     const file = e.target.files?.[0];
@@ -25,10 +44,38 @@ const Profile: React.FC = () => {
     }
   };
 
-  const handleSave = () => {
+ const handleSave = async () => {
     if (user) {
-      Store.updateUser({ ...formData, id: user.id });
-      alert('Perfil atualizado com sucesso!');
+      setIsSavingProfile(true);
+      try {
+        await Store.updateUser({ ...formData, id: user.id });
+        alert('Perfil atualizado com sucesso!');
+      } catch (err) {
+        alert('Erro ao atualizar perfil.');
+      } finally {
+        setIsSavingProfile(false);
+      }
+    }
+  };
+
+  const handleUpdatePassword = async () => {
+    if (newPassword.length < 6) {
+      alert('A senha deve ter no mínimo 6 caracteres.');
+      return;
+    }
+    setIsUpdatingPassword(true);
+    try {
+      const result = await Store.updatePassword(newPassword);
+      if (result.success) {
+        alert('Senha alterada com sucesso!');
+        setNewPassword('');
+      } else {
+        alert('Erro: ' + result.error);
+      }
+    } catch (err) {
+      alert('Erro inesperado ao alterar senha.');
+    } finally {
+      setIsUpdatingPassword(false);
     }
   };
 
@@ -115,31 +162,58 @@ const Profile: React.FC = () => {
             <div className="flex justify-end">
               <button 
                 onClick={handleSave}
-                className="flex items-center gap-2 brand-gradient text-white px-8 py-4 rounded-2xl font-bold hover:shadow-xl hover:shadow-violet-200 transition-all active:scale-95"
+                disabled={isSavingProfile}
+                className="flex items-center gap-2 bg-violet-600 text-white px-8 py-4 rounded-2xl font-bold hover:shadow-xl hover:shadow-violet-200 transition-all active:scale-95 disabled:opacity-50"
               >
-                <Save className="w-5 h-5" /> Salvar Perfil
+                {isSavingProfile ? <Loader2 className="w-5 h-5 animate-spin" /> : <Save className="w-5 h-5" />}
+                Salvar Perfil
               </button>
             </div>
           </div>
 
           {/* Segurança */}
-          <div className="bg-slate-900 p-10 rounded-[2.5rem] text-white shadow-xl shadow-slate-200 space-y-6">
+          <div className="bg-slate-900 p-10 rounded-[2.5rem] text-white shadow-xl shadow-slate-200 space-y-8">
              <div className="flex items-center gap-3">
                <ShieldCheck className="w-6 h-6 text-emerald-400" />
                <h3 className="text-xl font-bold">Segurança da Conta</h3>
              </div>
-             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="bg-white/10 p-4 rounded-2xl space-y-1">
+             
+             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div className="bg-white/10 p-5 rounded-2xl space-y-2">
                    <div className="flex items-center gap-2 text-xs font-black text-slate-400 uppercase">
                      <Mail className="w-3 h-3" /> E-mail de Acesso
                    </div>
-                   <div className="font-bold truncate">{user?.email}</div>
+                   <div className="font-bold truncate text-lg">{user?.email}</div>
                 </div>
-                <div className="bg-white/10 p-4 rounded-2xl space-y-1">
+
+                <div className="bg-white/10 p-5 rounded-2xl space-y-4">
                    <div className="flex items-center gap-2 text-xs font-black text-slate-400 uppercase">
-                     <Key className="w-3 h-3" /> Senha
+                     <Key className="w-3 h-3" /> Alterar Senha
                    </div>
-                   <div className="font-bold">********</div>
+                   <div className="relative">
+                     <input 
+                       type={showPassword ? "text" : "password"}
+                       className="w-full bg-white/5 border-b border-white/20 p-2 pr-10 focus:border-emerald-400 focus:outline-none font-medium transition-colors"
+                       placeholder="Nova senha"
+                       value={newPassword}
+                       onChange={(e) => setNewPassword(e.target.value)}
+                     />
+                     <button 
+                       type="button" 
+                       onClick={() => setShowPassword(!showPassword)}
+                       className="absolute right-2 top-1/2 -translate-y-1/2 text-white/50 hover:text-white"
+                     >
+                       {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                     </button>
+                   </div>
+                   <button 
+                     onClick={handleUpdatePassword}
+                     disabled={isUpdatingPassword || !newPassword}
+                     className="w-full flex items-center justify-center gap-2 bg-emerald-500 hover:bg-emerald-600 text-white py-3 rounded-xl font-bold text-xs uppercase transition-all active:scale-95 disabled:opacity-30"
+                   >
+                     {isUpdatingPassword ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle className="w-4 h-4" />}
+                     Confirmar Alteração
+                   </button>
                 </div>
              </div>
              <p className="text-xs text-slate-400 font-medium italic">Sua senha é gerenciada pelo sistema de autenticação segura do Supabase e não é armazenada em texto aberto em nosso banco de dados de perfis.</p>

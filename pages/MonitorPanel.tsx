@@ -16,7 +16,11 @@ import {
   ClipboardCheck,
   User as UserIcon,
   CheckCircle,
-  ArrowRight
+  Send,
+  MessageSquare,
+  Search,
+  Trash2, 
+  AlertTriangle
 } from 'lucide-react';
 import { synthesizeFeedback, synthesizeMonitorFeedback } from '../services/gemini';
 
@@ -27,6 +31,29 @@ const Toast: React.FC<{ message: string; type: 'success' | 'error'; onClose: () 
     <button onClick={onClose} className="ml-4 p-1.5 hover:bg-white/20 rounded-lg transition-colors"><X className="w-4 h-4" /></button>
   </div>
 );
+
+const DeleteRoundModal: React.FC<{ isOpen: boolean; roundName: string; onConfirm: () => void; onCancel: () => void; loading?: boolean }> = ({ isOpen, roundName, onConfirm, onCancel, loading }) => {
+  if (!isOpen) return null;
+  return (
+    <div className="fixed inset-0 z-[120] flex items-center justify-center bg-slate-900/60 backdrop-blur-md p-6 animate-in fade-in duration-300">
+      <div className="bg-white rounded-[3rem] p-10 max-w-md w-full shadow-2xl space-y-8 animate-in zoom-in-95 duration-200 text-center border border-slate-100">
+        <div className="w-20 h-20 bg-rose-50 text-rose-600 rounded-full flex items-center justify-center mx-auto shadow-inner">
+           <AlertTriangle className="w-10 h-10" />
+        </div>
+        <div>
+          <h3 className="text-2xl font-black text-slate-900 tracking-tight leading-tight">Excluir Sprint?<br /><span className="text-rose-600 text-lg">"{roundName}"</span></h3>
+          <p className="text-slate-500 font-medium mt-4 leading-relaxed">Esta ação é irreversível. Todos os feedbacks enviados e relatórios IA gerados nesta rodada serão perdidos.</p>
+        </div>
+        <div className="flex gap-4">
+          <button onClick={onCancel} className="flex-1 py-4 bg-slate-100 text-slate-600 rounded-2xl font-bold hover:bg-slate-200 transition-all active:scale-95">Manter Sprint</button>
+          <button onClick={onConfirm} disabled={loading} className="flex-1 py-4 bg-rose-600 text-white rounded-2xl font-bold hover:bg-rose-700 transition-all shadow-lg shadow-rose-100 disabled:opacity-50 flex items-center justify-center gap-2 active:scale-95">
+            {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : "Sim, excluir"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
 
 const ConfirmModal: React.FC<{ isOpen: boolean; title: string; onConfirm: () => void; onCancel: () => void; loading?: boolean }> = ({ isOpen, title, onConfirm, onCancel, loading }) => {
   if (!isOpen) return null;
@@ -62,13 +89,16 @@ const MonitorPanel: React.FC = () => {
   const [batchProcessing, setBatchProcessing] = useState<string | null>(null);
   const [refiningId, setRefiningId] = useState<string | null>(null);
   const [approvingId, setApprovingId] = useState<string | null>(null);
+  const [deletingRoundId, setDeletingRoundId] = useState<string | null>(null);
   const [configGroupId, setConfigGroupId] = useState<string | null>(null);
   const [newRoundName, setNewRoundName] = useState('');
   const [newRoundDeadline, setNewRoundDeadline] = useState('');
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
   const [expandedReportId, setExpandedReportId] = useState<string | null>(null);
+  const [expandedTaskId, setExpandedTaskId] = useState<string | null>(null);
   const [reportToApprove, setReportToApprove] = useState<{ id: string; roundId: string } | null>(null);
   const [refinementText, setRefinementText] = useState<Record<string, string>>({});
+  const [taskText, setTaskText] = useState<Record<string, string>>({});
 
   useEffect(() => {
     refreshData();
@@ -114,6 +144,21 @@ const MonitorPanel: React.FC = () => {
       showToast('Sprint iniciada com sucesso!');
     } catch (err: any) {
       showToast("Erro: " + err.message, 'error');
+    }
+  };
+
+    const handleConfirmDeleteRound = async () => {
+    if (!deletingRoundId) return;
+    setLoading(true);
+    try {
+      await Store.deleteRound(deletingRoundId);
+      showToast('Sprint excluída com sucesso.');
+      setDeletingRoundId(null);
+      await refreshData();
+    } catch (err: any) {
+      showToast("Erro ao excluir: " + err.message, 'error');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -248,6 +293,30 @@ const MonitorPanel: React.FC = () => {
     }
   };
 
+  const handleSubmitTask = async (taskId: string) => {
+    const text = taskText[taskId];
+    if (!text || text.length < 10) return showToast("Por favor, preencha um feedback construtivo.", "error");
+    
+    try {
+      await Store.submitFeedback(taskId, text);
+      showToast("Feedback enviado com sucesso!");
+      setExpandedTaskId(null);
+      await refreshData();
+    } catch (err: any) {
+      showToast("Erro ao enviar feedback: " + err.message, "error");
+    }
+  };
+
+  const roundBeingDeleted = activeRounds.find(r => r.id === deletingRoundId);
+
+  // Filtros para o Painel Lateral
+  const myPendingTasks = assignments.filter(a => a.giverId === me?.id && a.status === 'PENDING' && a.isFromMonitor);
+  const reportsForApproval = reports.filter(r => r.type === 'STUDENT' && !r.isApproved);
+  
+  // Determina se devemos focar em tarefas ou aprovações
+  const hasActiveCollectingRound = activeRounds.some(r => r.status === RoundStatus.ACTIVE);
+  const showTasksFirst = hasActiveCollectingRound && myPendingTasks.length > 0;
+
   return (
     <div className="space-y-12 animate-in fade-in duration-500 pb-24 relative">
       {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
@@ -258,6 +327,14 @@ const MonitorPanel: React.FC = () => {
         loading={!!approvingId}
         onConfirm={handleApproveReport} 
         onCancel={() => setReportToApprove(null)} 
+      />
+
+      <DeleteRoundModal 
+        isOpen={!!deletingRoundId}
+        roundName={roundBeingDeleted?.name || ''}
+        onConfirm={handleConfirmDeleteRound}
+        onCancel={() => setDeletingRoundId(null)}
+        loading={loading && !!deletingRoundId}
       />
 
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
@@ -312,10 +389,21 @@ const MonitorPanel: React.FC = () => {
                     const isActive = round.status === RoundStatus.ACTIVE;
                     
                     return (
-                      <div key={round.id} className={`p-6 rounded-3xl border transition-all ${isCompleted ? 'bg-emerald-50 border-emerald-100 opacity-70' : isReview ? 'bg-white border-amber-200 shadow-md' : 'bg-slate-50 border-transparent'}`}>
+                       <div key={round.id} className={`p-6 rounded-3xl border transition-all ${isCompleted ? 'bg-emerald-50 border-emerald-100 opacity-70' : isReview ? 'bg-white border-amber-200 shadow-md' : 'bg-slate-50 border-transparent'}`}>
                         <div className="flex justify-between items-center mb-4">
                           <div className="flex flex-col">
-                            <span className="font-black text-slate-900 text-lg tracking-tight">{round.name}</span>
+                            <div className="flex items-center gap-2">
+                              <span className="font-black text-slate-900 text-lg tracking-tight">{round.name}</span>
+                              {!isCompleted && (
+                                <button 
+                                  onClick={() => setDeletingRoundId(round.id)}  
+                                  className="p-1.5 text-slate-300 hover:text-rose-500 transition-colors"
+                                  title="Excluir Sprint"
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </button>
+                              )}
+                            </div>
                             <span className="text-[10px] font-bold text-slate-400 mt-0.5">{submittedCount} de {roundAssignments.length} entregas realizadas</span>
                           </div>
                           <span className={`text-[10px] font-black px-3 py-1.5 rounded-full uppercase flex items-center gap-2 ${isCompleted ? 'bg-emerald-100 text-emerald-700' : isReview ? 'bg-amber-100 text-amber-700' : 'bg-slate-200 text-slate-600'}`}>
@@ -345,76 +433,131 @@ const MonitorPanel: React.FC = () => {
           })}
         </div>
 
-        {/* Lado Direito: Revisão de Relatórios */}
+         {/* Lado Direito Contextual: Tarefas (Coleta) ou Aprovações (Revisão) */}
         <div className="space-y-8">
-          <h2 className="text-xl font-black text-slate-800 flex items-center gap-3 ml-2">
-             <ShieldCheck className="w-6 h-6 text-emerald-600" /> Fila de Aprovação
-          </h2>
-          <div className="bg-white rounded-[3rem] border border-slate-100 shadow-soft overflow-hidden min-h-[600px] flex flex-col">
-            <div className="p-8 border-b border-slate-50 bg-slate-50/50">
-               <p className="text-sm text-slate-500 font-medium">Revise as sínteses geradas pela inteligência artificial antes de liberar para os alunos.</p>
-            </div>
-            <div className="flex-1 overflow-y-auto">
-              {reports.filter(r => r.type === 'STUDENT' && !r.isApproved).map(report => {
-                const student = users.find(u => u.id === report.targetId);
-                const roundId = Array.isArray(report.roundId) ? report.roundId[0] : report.roundId;
-                const round = activeRounds.find(rd => rd.id === roundId);
-                const isExpanded = expandedReportId === report.id;
-
-                return (
-                  <div key={report.id} className="p-6 border-b border-slate-50 transition-all hover:bg-slate-50/50 group">
-                    <div className="flex items-center justify-between gap-4">
-                       <div className="flex items-center gap-4 flex-1 min-w-0">
-                          <div className="w-12 h-12 bg-slate-100 rounded-2xl flex items-center justify-center shrink-0 border border-slate-200 overflow-hidden shadow-inner">
-                             {student?.photoUrl ? <img src={student.photoUrl} className="w-full h-full object-cover" /> : <UserIcon className="text-slate-300 w-6 h-6" />}
-                          </div>
-                          <div className="min-w-0">
-                             <div className="font-black text-slate-900 truncate">{student?.name}</div>
-                             <div className="text-[10px] font-black text-violet-500 uppercase tracking-[0.1em]">{round?.name}</div>
-                          </div>
-                       </div>
-                       <div className="flex items-center gap-2">
-                          <button onClick={() => setExpandedReportId(isExpanded ? null : report.id)} className={`p-3 rounded-xl transition-all ${isExpanded ? 'bg-slate-900 text-white' : 'text-slate-400 hover:bg-slate-100'}`}>
-                             <ChevronDown className={`w-5 h-5 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
-                          </button>
-                          <button onClick={() => setReportToApprove({ id: report.id, roundId })} className="bg-emerald-50 text-emerald-700 px-5 py-3 rounded-xl text-xs font-black hover:bg-emerald-600 hover:text-white transition-all shadow-sm border border-emerald-100 active:scale-95">
-                             Aprovar
-                          </button>
-                       </div>
-                    </div>
-
-                    {isExpanded && (
-                      <div className="mt-8 space-y-6 animate-in slide-in-from-top-4 duration-300">
-                         <div className="p-8 bg-white border border-slate-100 rounded-[2rem] text-sm text-slate-600 leading-relaxed italic whitespace-pre-wrap shadow-inner font-medium">
-                            {report.content}
-                         </div>
-                         <div className="space-y-4">
-                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-2">Sugestões de Ajuste (IA)</label>
-                            <textarea 
-                              placeholder="Ex: Tente ser mais motivador ou foque menos em detalhes técnicos..."
-                              className="w-full rounded-2xl border-0 bg-slate-50 p-6 text-sm font-semibold focus:ring-2 focus:ring-violet-500 h-28 shadow-soft transition-all"
-                              value={refinementText[report.id] || ''}
-                              onChange={(e) => setRefinementText({...refinementText, [report.id]: e.target.value})}
-                            />
-                            <button onClick={() => handleRefineReport(report)} disabled={refiningId === report.id} className="w-full py-4 bg-slate-900 text-white rounded-2xl text-xs font-black hover:bg-violet-600 transition-all flex items-center justify-center gap-3 shadow-soft active:scale-95 disabled:opacity-50">
-                               {refiningId === report.id ? <Loader2 className="w-5 h-5 animate-spin" /> : <RefreshCw className="w-5 h-5" />} Refinar Síntese
-                            </button>
-                         </div>
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-              {reports.filter(r => r.type === 'STUDENT' && !r.isApproved).length === 0 && (
-                <div className="flex-1 flex flex-col items-center justify-center py-20 px-10 text-center space-y-4 opacity-30 group">
-                   <div className="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center transition-transform group-hover:scale-110 duration-500">
-                      <ClipboardCheck className="w-10 h-10 text-slate-400" />
-                   </div>
-                   <p className="text-lg font-black text-slate-400 uppercase tracking-tighter">Tudo em dia por aqui</p>
+          {showTasksFirst ? (
+            <>
+              <h2 className="text-xl font-black text-slate-800 flex items-center gap-3 ml-2">
+                 <MessageSquare className="w-6 h-6 text-violet-600" /> Minha Fila de Tarefas
+              </h2>
+              <div className="bg-white rounded-[3rem] border border-slate-100 shadow-soft overflow-hidden min-h-[600px] flex flex-col">
+                <div className="p-8 border-b border-slate-50 bg-violet-50/30">
+                   <p className="text-sm text-slate-600 font-medium">Você tem avaliações pendentes para enviar aos seus alunos nesta sprint.</p>
                 </div>
-              )}
-            </div>
-          </div>
+                <div className="flex-1 overflow-y-auto">
+                   {myPendingTasks.map(task => {
+                     const student = users.find(u => u.id === task.receiverId);
+                     const round = activeRounds.find(r => r.id === task.roundId);
+                     const isExpanded = expandedTaskId === task.id;
+
+                     return (
+                       <div key={task.id} className="p-6 border-b border-slate-50 transition-all hover:bg-slate-50/50">
+                          <div className="flex items-center justify-between gap-4">
+                             <div className="flex items-center gap-4 flex-1 min-w-0">
+                                <div className="w-12 h-12 bg-slate-100 rounded-2xl flex items-center justify-center shrink-0 border border-slate-200 overflow-hidden shadow-inner">
+                                   {student?.photoUrl ? <img src={student.photoUrl} className="w-full h-full object-cover" /> : <UserIcon className="text-slate-300 w-6 h-6" />}
+                                </div>
+                                <div className="min-w-0">
+                                   <div className="font-black text-slate-900 truncate">{student?.name}</div>
+                                   <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{round?.name}</div>
+                                </div>
+                             </div>
+                             <button onClick={() => setExpandedTaskId(isExpanded ? null : task.id)} className={`bg-violet-600 text-white px-6 py-3 rounded-xl text-xs font-black transition-all shadow-brand active:scale-95 ${isExpanded ? 'bg-slate-900' : ''}`}>
+                                {isExpanded ? 'Fechar' : 'Avaliar'}
+                             </button>
+                          </div>
+                          
+                          {isExpanded && (
+                            <div className="mt-6 space-y-4 animate-in slide-in-from-top-4 duration-300">
+                               <textarea 
+                                 placeholder={`Como foi o desempenho de ${student?.name.split(' ')[0]} nesta sprint? Quais pontos de melhoria você identificou?`}
+                                 className="w-full rounded-2xl border-0 bg-slate-50 p-6 text-sm font-semibold focus:ring-2 focus:ring-violet-500 h-40 shadow-inner transition-all"
+                                 value={taskText[task.id] || ''}
+                                 onChange={(e) => setTaskText({...taskText, [task.id]: e.target.value})}
+                               />
+                               <button onClick={() => handleSubmitTask(task.id)} className="w-full py-4 bg-violet-600 text-white rounded-2xl text-xs font-black hover:bg-violet-700 transition-all flex items-center justify-center gap-3 shadow-brand active:scale-95">
+                                  <Send className="w-4 h-4" /> Enviar Feedback Oficial
+                               </button>
+                            </div>
+                          )}
+                       </div>
+                     );
+                   })}
+                </div>
+              </div>
+            </>
+          ) : (
+            <>
+              <h2 className="text-xl font-black text-slate-800 flex items-center gap-3 ml-2">
+                 <ShieldCheck className="w-6 h-6 text-emerald-600" /> Fila de Aprovação
+              </h2>
+              <div className="bg-white rounded-[3rem] border border-slate-100 shadow-soft overflow-hidden min-h-[600px] flex flex-col">
+                <div className="p-8 border-b border-slate-50 bg-slate-50/50">
+                   <p className="text-sm text-slate-500 font-medium">Revise as sínteses geradas pela inteligência artificial antes de liberar para os alunos.</p>
+                </div>
+                <div className="flex-1 overflow-y-auto">
+                  {reportsForApproval.map(report => {
+                    const student = users.find(u => u.id === report.targetId);
+                    const roundId = Array.isArray(report.roundId) ? report.roundId[0] : report.roundId;
+                    const round = activeRounds.find(rd => rd.id === roundId);
+                    const isExpanded = expandedReportId === report.id;
+
+                    return (
+                      <div key={report.id} className="p-6 border-b border-slate-50 transition-all hover:bg-slate-50/50 group">
+                        <div className="flex items-center justify-between gap-4">
+                           <div className="flex items-center gap-4 flex-1 min-w-0">
+                              <div className="w-12 h-12 bg-slate-100 rounded-2xl flex items-center justify-center shrink-0 border border-slate-200 overflow-hidden shadow-inner">
+                                 {student?.photoUrl ? <img src={student.photoUrl} className="w-full h-full object-cover" /> : <UserIcon className="text-slate-300 w-6 h-6" />}
+                              </div>
+                              <div className="min-w-0">
+                                 <div className="font-black text-slate-900 truncate">{student?.name}</div>
+                                 <div className="text-[10px] font-black text-violet-500 uppercase tracking-[0.1em]">{round?.name}</div>
+                              </div>
+                           </div>
+                           <div className="flex items-center gap-2">
+                              <button onClick={() => setExpandedReportId(isExpanded ? null : report.id)} className={`p-3 rounded-xl transition-all ${isExpanded ? 'bg-slate-900 text-white' : 'text-slate-400 hover:bg-slate-100'}`}>
+                                 <ChevronDown className={`w-5 h-5 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
+                              </button>
+                              <button onClick={() => setReportToApprove({ id: report.id, roundId })} className="bg-emerald-50 text-emerald-700 px-5 py-3 rounded-xl text-xs font-black hover:bg-emerald-600 hover:text-white transition-all shadow-sm border border-emerald-100 active:scale-95">
+                                 Aprovar
+                              </button>
+                           </div>
+                        </div>
+
+                        {isExpanded && (
+                          <div className="mt-8 space-y-6 animate-in slide-in-from-top-4 duration-300">
+                             <div className="p-8 bg-white border border-slate-100 rounded-[2rem] text-sm text-slate-600 leading-relaxed italic whitespace-pre-wrap shadow-inner font-medium">
+                                {report.content}
+                             </div>
+                             <div className="space-y-4">
+                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-2">Sugestões de Ajuste (IA)</label>
+                                <textarea 
+                                  placeholder="Ex: Tente ser mais motivador ou foque menos em detalhes técnicos..."
+                                  className="w-full rounded-2xl border-0 bg-slate-50 p-6 text-sm font-semibold focus:ring-2 focus:ring-violet-500 h-28 shadow-soft transition-all"
+                                  value={refinementText[report.id] || ''}
+                                  onChange={(e) => setRefinementText({...refinementText, [report.id]: e.target.value})}
+                                />
+                                <button onClick={() => handleRefineReport(report)} disabled={refiningId === report.id} className="w-full py-4 bg-slate-900 text-white rounded-2xl text-xs font-black hover:bg-violet-600 transition-all flex items-center justify-center gap-3 shadow-soft active:scale-95 disabled:opacity-50">
+                                   {refiningId === report.id ? <Loader2 className="w-5 h-5 animate-spin" /> : <RefreshCw className="w-5 h-5" />} Refinar Síntese
+                                </button>
+                             </div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                  {reportsForApproval.length === 0 && (
+                    <div className="flex-1 flex flex-col items-center justify-center py-20 px-10 text-center space-y-4 opacity-30 group">
+                       <div className="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center transition-transform group-hover:scale-110 duration-500">
+                          <ClipboardCheck className="w-10 h-10 text-slate-400" />
+                       </div>
+                       <p className="text-lg font-black text-slate-400 uppercase tracking-tighter">Tudo em dia por aqui</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </>
+          )}
         </div>
       </div>
     </div>

@@ -1,0 +1,199 @@
+
+.quality-section {
+  background-color: #ffffff;
+  border-radius: 3rem;
+  border: 1px solid #f1f5f9;
+  padding: 2rem;
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+}
+
+@media (min-width: 768px) {
+  .quality-section {
+    padding: 2.5rem;
+  }
+}
+
+.quality-section--submitted {
+  display: block;
+}
+
+.submitted-msg {
+  text-align: center;
+  padding: 3rem;
+  background-color: #ecfdf5;
+  color: #047857;
+  font-weight: 900;
+  border-radius: 2rem;
+  border: 1px solid #d1fae5;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.icon-lg { width: 3rem; height: 3rem; }
+.icon-md { width: 1.75rem; height: 1.75rem; }
+.icon-sm { width: 1.25rem; height: 1.25rem; }
+.icon-xs { width: 1rem; height: 1rem; }
+
+.section-header {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.header-icon-wrapper {
+  width: 3rem;
+  height: 3rem;
+  border-radius: 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.icon-bg-amber {
+  background-color: #fef3c7;
+  color: #d97706;
+}
+
+.header-text {
+  display: flex;
+  flex-direction: column;
+}
+
+.section-title {
+  font-size: 1.5rem;
+  font-weight: 900;
+  color: #0f172a;
+  letter-spacing: -0.025em;
+}
+
+.section-subtitle {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #94a3b8;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+.section-form {
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+}
+
+.form-card {
+  padding: 2rem;
+  border-radius: 2.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  border: 1px solid transparent;
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+}
+
+.card-emerald { background-color: rgba(236, 253, 245, 0.5); border-color: #d1fae5; }
+.card-rose { background-color: rgba(254, 242, 242, 0.5); border-color: #fee2e2; }
+.card-slate { background-color: rgba(248, 250, 252, 0.8); border-color: #f1f5f9; }
+
+.card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.card-label-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.card-label {
+  font-size: 0.75rem;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+.label-emerald { color: #047857; }
+.label-rose { color: #be123c; }
+.label-slate { color: #64748b; }
+
+.icon-text-emerald { color: #059669; }
+.icon-text-rose { color: #e11d48; }
+.icon-text-slate { color: #64748b; }
+
+.score-text {
+  font-size: 2.25rem;
+  font-weight: 900;
+}
+
+.text-emerald { color: #059669; }
+.text-rose { color: #e11d48; }
+
+.range-input {
+  width: 100%;
+  height: 0.5rem;
+  border-radius: 0.5rem;
+  appearance: none;
+  cursor: pointer;
+}
+
+.range-emerald { background-color: #d1fae5; }
+.range-rose { background-color: #fee2e2; }
+
+.range-emerald::-webkit-slider-thumb { appearance: none; height: 1.25rem; width: 1.25rem; border-radius: 9999px; background: #059669; }
+.range-rose::-webkit-slider-thumb { appearance: none; height: 1.25rem; width: 1.25rem; border-radius: 9999px; background: #e11d48; }
+
+.form-textarea {
+  width: 100%;
+  background-color: #ffffff;
+  border: none;
+  border-radius: 1.25rem;
+  padding: 1.25rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  height: 6rem;
+  box-shadow: inset 0 2px 4px 0 rgba(0, 0, 0, 0.05);
+  outline: none;
+  transition: all 0.2s;
+}
+
+.form-textarea--tall { height: 8rem; }
+
+.focus-emerald:focus { box-shadow: 0 0 0 2px #d1fae5; }
+.focus-rose:focus { box-shadow: 0 0 0 2px #fee2e2; }
+.focus-violet:focus { box-shadow: 0 0 0 2px #ede9fe; }
+
+.submit-btn {
+  width: 100%;
+  background-color: #0f172a;
+  color: #ffffff;
+  padding-top: 1.25rem;
+  padding-bottom: 1.25rem;
+  border-radius: 1.25rem;
+  font-weight: 900;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+}
+
+.submit-btn:hover {
+  background-color: #7c3aed;
+}
+
+.submit-btn:active {
+  transform: scale(0.98);
+}
+
+@keyframes animate-zoom {
+  from { transform: scale(0.95); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}

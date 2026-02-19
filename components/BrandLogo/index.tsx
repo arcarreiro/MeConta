@@ -1,4 +1,6 @@
+
 import logo from "../../assets/logo.png";
+import './style.css';
 
 export const BrandLogo = ({ size = "md" }: { size?: "sm" | "md" | "lg" }) => {
   const dimensions = size === "sm" ? 32 : size === "md" ? 48 : 96;
@@ -9,7 +11,7 @@ export const BrandLogo = ({ size = "md" }: { size?: "sm" | "md" | "lg" }) => {
       alt="Brand logo"
       width={dimensions}
       height={dimensions}
-      className="shrink-0 object-contain"
+      className="brand-logo"
     />
   );
 };

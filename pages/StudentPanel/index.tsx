@@ -2,9 +2,9 @@
 import React, { useState, useEffect } from 'react';
 import { Store } from '../../services/store';
 import { FeedbackAssignment, SynthesizedReport, User, FeedbackRound, CourseEvaluation, Group, RoundStatus } from '../../types';
-import { 
-  Clock, 
-  Loader2, 
+import {
+  Clock,
+  Loader2,
   CheckCircle2,
   Coffee
 } from 'lucide-react';
@@ -24,14 +24,14 @@ const StudentPanel: React.FC = () => {
   const [pendingReportRoundIds, setPendingReportRoundIds] = useState<string[]>([]);
   const [monitorsInGroup, setMonitorsInGroup] = useState<User[]>([]);
   const [activeRounds, setActiveRounds] = useState<FeedbackRound[]>([]);
-  
+
   const [evaluations, setEvaluations] = useState<Record<string, CourseEvaluation>>({});
   const [monitorFeedbackText, setMonitorFeedbackText] = useState<Record<string, string>>({});
   const [peerFeedbackText, setPeerFeedbackText] = useState<Record<string, string>>({});
-  
+
   const [submittedMonitorIdsByRound, setSubmittedMonitorIdsByRound] = useState<Record<string, string[]>>({});
   const [submittedCourseRoundIds, setSubmittedCourseRoundIds] = useState<string[]>([]);
-  
+
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -54,35 +54,55 @@ const StudentPanel: React.FC = () => {
       setRounds(allRounds);
 
       const myGroup = allGroups.find(g => g.id === me?.groupId);
-      const active = allRounds.filter(r => r.groupId === me?.groupId && (r.status === RoundStatus.ACTIVE || r.status === RoundStatus.UNDER_REVIEW));
-      
+      const active = allRounds.filter(r =>
+        String(r.groupId).toLowerCase() === String(me?.groupId).toLowerCase() &&
+        (r.status === RoundStatus.ACTIVE || r.status === RoundStatus.UNDER_REVIEW)
+      );
+
       if (myGroup) {
-        const monitors = allUsers.filter(u => myGroup.monitorIds.includes(u.id));
+        const monitors = allUsers.filter(u =>
+          myGroup.monitorIds.some(mId => String(mId).toLowerCase() === String(u.id).toLowerCase())
+        );
         setMonitorsInGroup(monitors);
       }
-      
+
       setActiveRounds(active);
-      setTasks(allAssignments.filter(a => a.giverId === me?.id && a.status === 'PENDING' && !a.isToMonitor));
-      
-      const myIndividualReports = allReports.filter(r => r.targetId === me?.id && r.type === 'STUDENT');
-      setReports(myIndividualReports.filter(r => r.isApproved).sort((a,b) => b.createdAt - a.createdAt));
-      
+      setTasks(allAssignments.filter(a =>
+        String(a.giverId).toLowerCase() === String(me?.id).toLowerCase() &&
+        a.status === 'PENDING' &&
+        !a.isToMonitor
+      ));
+
+      const myIndividualReports = allReports.filter(r =>
+        String(r.targetId).toLowerCase() === String(me?.id).toLowerCase() &&
+        r.type === 'STUDENT'
+      );
+      setReports(myIndividualReports.filter(r => r.isApproved).sort((a, b) => b.createdAt - a.createdAt));
+
       const pendingIds = myIndividualReports
         .filter(r => !r.isApproved)
-        .map(r => Array.isArray(r.roundId) ? r.roundId[0] : r.roundId);
+        .map(r => {
+          const rId = Array.isArray(r.roundId) ? r.roundId[0] : r.roundId;
+          return String(rId).toLowerCase();
+        });
       setPendingReportRoundIds(pendingIds);
-      
-      const myEvals = allEvals.filter(e => e.studentId === me?.id);
-      const evalMap: Record<string, CourseEvaluation> = {};
-      myEvals.forEach(e => evalMap[e.roundId] = e);
-      setEvaluations(evalMap);
-      setSubmittedCourseRoundIds(myEvals.map(e => e.roundId));
 
-      const monitorFeedbacks = allAssignments.filter(a => a.giverId === me?.id && a.isToMonitor && a.status === 'SUBMITTED');
+      const myEvals = allEvals.filter(e => String(e.studentId).toLowerCase() === String(me?.id).toLowerCase());
+      const evalMap: Record<string, CourseEvaluation> = {};
+      myEvals.forEach(e => evalMap[String(e.roundId).toLowerCase()] = e);
+      setEvaluations(evalMap);
+      setSubmittedCourseRoundIds(myEvals.map(e => String(e.roundId).toLowerCase()));
+
+      const monitorFeedbacks = allAssignments.filter(a =>
+        String(a.giverId).toLowerCase() === String(me?.id).toLowerCase() &&
+        a.isToMonitor &&
+        a.status === 'SUBMITTED'
+      );
       const monitorMap: Record<string, string[]> = {};
       monitorFeedbacks.forEach(f => {
-        if (!monitorMap[f.roundId]) monitorMap[f.roundId] = [];
-        monitorMap[f.roundId].push(f.receiverId);
+        const rId = String(f.roundId).toLowerCase();
+        if (!monitorMap[rId]) monitorMap[rId] = [];
+        monitorMap[rId].push(String(f.receiverId).toLowerCase());
       });
       setSubmittedMonitorIdsByRound(monitorMap);
 
@@ -111,13 +131,13 @@ const StudentPanel: React.FC = () => {
     const text = monitorFeedbackText[monitorId];
     if (!text || text.length < 10) return alert('Por favor, escreva um feedback um pouco mais detalhado.');
     await Store.createStudentToMonitorFeedback(roundId, me?.id || '', monitorId, text);
-    
+
     setMonitorFeedbackText(prev => {
       const next = { ...prev };
       delete next[monitorId];
       return next;
     });
-    
+
     refresh();
   };
 
@@ -137,7 +157,7 @@ const StudentPanel: React.FC = () => {
       q2: { score: 5, comment: '' },
       q3: { score: 10, comment: '' }
     };
-    setEvaluations({...evaluations, [roundId]: {...current, [field]: {...current[field], [subfield]: value}}});
+    setEvaluations({ ...evaluations, [roundId]: { ...current, [field]: { ...current[field], [subfield]: value } } });
   };
 
   if (loading) {
@@ -152,7 +172,7 @@ const StudentPanel: React.FC = () => {
   return (
     <div className="student-page">
       <div className="student-layout">
-        
+
         <div className="student-main">
           <div className="student-welcome">
             <h1 className="student-welcome__title">Olá, {me?.name}! 👋</h1>
@@ -161,44 +181,45 @@ const StudentPanel: React.FC = () => {
 
           {activeRounds.length === 0 && (
             <div className="student-no-rounds">
-               <div className="student-no-rounds__icon-wrapper">
-                  <Coffee className="student-no-rounds__icon" />
-               </div>
-               <div className="student-no-rounds__content">
-                 <h2 className="student-no-rounds__title">Tudo calmo por aqui!</h2>
-                 <p className="student-no-rounds__subtitle">
-                   Aguarde o monitor lançar a próxima Sprint de Feedback.
-                 </p>
-               </div>
+              <div className="student-no-rounds__icon-wrapper">
+                <Coffee className="student-no-rounds__icon" />
+              </div>
+              <div className="student-no-rounds__content">
+                <h2 className="student-no-rounds__title">Tudo calmo por aqui!</h2>
+                <p className="student-no-rounds__subtitle">
+                  Aguarde o monitor lançar a próxima Sprint de Feedback.
+                </p>
+              </div>
             </div>
           )}
 
           {activeRounds.map(round => {
-            const isPendingApproval = pendingReportRoundIds.includes(round.id);
+             const roundIdLower = String(round.id).toLowerCase();
+            const isPendingApproval = pendingReportRoundIds.some(id => String(id).toLowerCase() === roundIdLower);
             const isReview = round.status === RoundStatus.UNDER_REVIEW;
-            const submittedMonitors = submittedMonitorIdsByRound[round.id] || [];
-            
+            const submittedMonitors = submittedMonitorIdsByRound[roundIdLower] || [];
+
             return (
               <div key={round.id} className="student-round-container">
                 <div className={`student-status-banner ${isPendingApproval ? 'student-status-banner--pending' : isReview ? 'student-status-banner--review' : 'student-status-banner--active'}`}>
-                   <div className="student-status-banner__content">
-                      <div className="student-status-banner__icon-wrapper">
-                        {isPendingApproval ? <Loader2 className="animate-spin" /> : isReview ? <CheckCircle2 /> : <Clock />}
+                  <div className="student-status-banner__content">
+                    <div className="student-status-banner__icon-wrapper">
+                      {isPendingApproval ? <Loader2 className="animate-spin" /> : isReview ? <CheckCircle2 /> : <Clock />}
+                    </div>
+                    <div>
+                      <div className="student-status-banner__label">{round.name}</div>
+                      <div className="student-status-banner__title">
+                        {isPendingApproval
+                          ? 'Aguardando revisão do monitor...'
+                          : isReview
+                            ? 'Feedbacks coletados. Em processamento pela IA.'
+                            : 'Sprint em andamento. Complete suas tarefas abaixo.'}
                       </div>
-                      <div>
-                        <div className="student-status-banner__label">{round.name}</div>
-                        <div className="student-status-banner__title">
-                          {isPendingApproval 
-                            ? 'Aguardando revisão do monitor...' 
-                            : isReview 
-                              ? 'Feedbacks coletados. Em processamento pela IA.' 
-                              : 'Sprint em andamento. Complete suas tarefas abaixo.'}
-                        </div>
-                      </div>
-                   </div>
+                    </div>
+                  </div>
                 </div>
 
-               {round.status === RoundStatus.ACTIVE && !isPendingApproval && (
+                {round.status === RoundStatus.ACTIVE && !isPendingApproval && (
                   <div className="student-round-actions">
                     <MentoringSection
                       round={round}
@@ -213,8 +234,9 @@ const StudentPanel: React.FC = () => {
 
                     <CourseQualitySection
                       roundId={round.id}
-                      evaluation={evaluations[round.id]}
-                      submitted={submittedCourseRoundIds.includes(round.id)}
+                      evaluation={evaluations[roundIdLower]}
+                      submitted={submittedCourseRoundIds.some(id => String(id).toLowerCase() === roundIdLower)}
+                      
                       onUpdateEval={updateEval}
                       onSubmit={handleCourseEvalSubmit}
                     />

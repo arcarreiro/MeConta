@@ -53,6 +53,7 @@ const MonitorPanel: React.FC = () => {
     refreshData();
   }, []);
 
+
   const showToast = (message: string, type: 'success' | 'error' = 'success') => {
     setToast({ message, type });
     setTimeout(() => setToast(null), 5000);
@@ -69,10 +70,47 @@ const MonitorPanel: React.FC = () => {
         Store.getReports(),
         Store.getCourseEvaluations()
       ]);
+
       const myGroups = allGroups.filter(g => g.monitorIds.includes(me?.id || '') || me?.role === Role.ADMIN);
+
+      // Safety Logic: Auto-complete rounds in UNDER_REVIEW with no pending reports
+      const roundsToCheck = allRounds.filter(r =>
+        (r.status === RoundStatus.ACTIVE || r.status === RoundStatus.UNDER_REVIEW) &&
+        myGroups.some(g =>
+          String(g.id).toLowerCase().trim() ===
+          String(r.groupId).toLowerCase().trim()
+        )
+      );
+
+      for (const round of roundsToCheck) {
+        const roundIdLower = String(round.id).toLowerCase().trim();
+
+        const studentReports = allReports.filter(rep => {
+          const repRoundId = Array.isArray(rep.roundId) ? rep.roundId[0] : rep.roundId;
+          return String(repRoundId).toLowerCase().trim() === roundIdLower &&
+            rep.type === 'STUDENT';
+        });
+
+        const pendingReports = studentReports.filter(rep => !rep.isApproved);
+
+        
+
+        // Se existem relatórios mas ainda está ACTIVE → mover para UNDER_REVIEW
+        if (round.status === RoundStatus.ACTIVE && studentReports.length > 0) {
+          await Store.updateRoundStatus(round.id, RoundStatus.UNDER_REVIEW);
+          round.status = RoundStatus.UNDER_REVIEW;
+        }
+
+        // Se não há pendentes → completar
+        if (pendingReports.length === 0 && studentReports.length > 0) {
+          await Store.completeRound(round.id);
+          round.status = RoundStatus.COMPLETED;
+        }
+      }
+
       setUsers(allUsers);
       setGroups(myGroups);
-      setActiveRounds(allRounds.filter(r => myGroups.some(g => g.id === r.groupId)));
+      setActiveRounds(allRounds.filter(r => myGroups.some(g => String(g.id).toLowerCase().trim() === String(r.groupId).toLowerCase().trim())));
       setAssignments(allAssignments);
       setReports(allReports);
       setCourseEvaluations(allEvals);
@@ -86,8 +124,8 @@ const MonitorPanel: React.FC = () => {
   const handleStartRound = async (groupId: string) => {
     if (!newRoundName || !newRoundDeadline) return showToast('Preencha os campos.', 'error');
 
-    const openRound = activeRounds.find(r => 
-      r.groupId === groupId && 
+    const openRound = activeRounds.find(r =>
+      r.groupId === groupId &&
       (r.status === RoundStatus.ACTIVE || r.status === RoundStatus.UNDER_REVIEW)
     );
 
@@ -193,12 +231,23 @@ const MonitorPanel: React.FC = () => {
     try {
       await Store.approveReport(reportId);
 
-      setReports(prev => prev.map(r => r.id === reportId ? { ...r, isApproved: true } : r));
+      // Update local state and check for completion using the updated list
+      const updatedReports = reports.map(r =>
+        String(r.id).toLowerCase() === String(reportId).toLowerCase() ? { ...r, isApproved: true } : r
+      );
+      setReports(updatedReports);
 
-      const allReports = await Store.getReports();
-      const pendingsOfRound = allReports.filter(r => {
+      const pendingsOfRound = updatedReports.filter(r => {
         const rId = Array.isArray(r.roundId) ? r.roundId[0] : r.roundId;
-        return rId === roundId && r.type === 'STUDENT' && !r.isApproved && r.id !== reportId;
+        return String(rId).toLowerCase().trim() === String(roundId).toLowerCase().trim() &&
+          r.type === 'STUDENT' &&
+          !r.isApproved;
+      });
+
+      console.log("🧪 DEBUG PENDINGS", {
+        roundId,
+        totalReports: updatedReports.length,
+        pendingsOfRound
       });
 
       if (pendingsOfRound.length === 0) {
@@ -275,21 +324,42 @@ const MonitorPanel: React.FC = () => {
   const showTasksFirst = hasActiveCollectingRound && myPendingTasks.length > 0;
 
   const getStudentsWithPendingTasks = (round: FeedbackRound) => {
-    const groupStudents = users.filter(u => u.groupId === round.groupId && u.role === Role.STUDENT);
-    const roundAssignments = assignments.filter(a => a.roundId === round.id);
-    const roundEvals = courseEvaluations.filter(e => String(e.roundId) === String(round.id));
+    const roundIdLower = String(round.id).toLowerCase().trim();
+    const groupStudents = users.filter(u => String(u.groupId).toLowerCase().trim() === String(round.groupId).toLowerCase().trim() && u.role === Role.STUDENT);
+    const roundAssignments = assignments.filter(a => String(a.roundId).toLowerCase().trim() === roundIdLower);
+    const roundEvals = courseEvaluations.filter(e => {
+      const evalRoundId = Array.isArray(e.roundId) ? e.roundId[0] : e.roundId;
+      return String(evalRoundId).toLowerCase().trim() === roundIdLower;
+    });
+    const group = groups.find(g => String(g.id).toLowerCase().trim() === String(round.groupId).toLowerCase().trim());
+    const hasMonitorsInGroup = group && group.monitorIds && group.monitorIds.length > 0;
 
     return groupStudents.map(student => {
-      const peerPendingCount = roundAssignments.filter(a => a.giverId === student.id && !a.isToMonitor && a.status === 'PENDING').length;
-      const hasMonitorFeedback = roundAssignments.some(a => a.giverId === student.id && a.isToMonitor && a.status === 'SUBMITTED');
-      const hasCourseEval = roundEvals.some(e => e.studentId === student.id);
+      const studentIdLower = String(student.id).toLowerCase().trim();
+
+      const peerPendingCount = roundAssignments.filter(a =>
+        String(a.giverId).toLowerCase().trim() === studentIdLower &&
+        !a.isToMonitor &&
+        a.status === 'PENDING'
+      ).length;
+
+      const hasMonitorFeedback = roundAssignments.some(a =>
+        String(a.giverId).toLowerCase().trim() === studentIdLower &&
+        a.isToMonitor &&
+        a.status === 'SUBMITTED'
+      );
+
+      const hasCourseEval = roundEvals.some(e => String(e.studentId).toLowerCase().trim() === studentIdLower);
+
+      const missingMonitor = hasMonitorsInGroup && !hasMonitorFeedback;
+      const missingCourse = !hasCourseEval;
 
       return {
         student,
         peerPendingCount,
-        missingMonitor: !hasMonitorFeedback,
-        missingCourse: !hasCourseEval,
-        isFullyPending: peerPendingCount > 0 || !hasMonitorFeedback || !hasCourseEval
+        missingMonitor,
+        missingCourse,
+        isFullyPending: peerPendingCount > 0 || missingMonitor || missingCourse
       };
     }).filter(s => s.isFullyPending);
   };
@@ -355,27 +425,27 @@ const MonitorPanel: React.FC = () => {
                           </span>
                         )}
                       </div>
-                      <input 
-                        type="text" 
-                        placeholder="Ex: Sprint 01 - Onboarding" 
-                        className="monitor-form__input" 
-                        value={newRoundName} 
-                        onChange={(e) => setNewRoundName(e.target.value)} 
-                        disabled={hasOpenSprint} 
+                      <input
+                        type="text"
+                        placeholder="Ex: Sprint 01 - Onboarding"
+                        className="monitor-form__input"
+                        value={newRoundName}
+                        onChange={(e) => setNewRoundName(e.target.value)}
+                        disabled={hasOpenSprint}
                       />
                       <div className="monitor-form__field">
                         <label className="monitor-form__label">Data de Encerramento</label>
-                        <input 
-                          type="date" 
-                          className="monitor-form__input" 
-                          value={newRoundDeadline} 
-                          onChange={(e) => setNewRoundDeadline(e.target.value)} 
-                          disabled={hasOpenSprint} 
+                        <input
+                          type="date"
+                          className="monitor-form__input"
+                          value={newRoundDeadline}
+                          onChange={(e) => setNewRoundDeadline(e.target.value)}
+                          disabled={hasOpenSprint}
                         />
                       </div>
-                      <button 
-                        onClick={() => handleStartRound(group.id)} 
-                        disabled={hasOpenSprint} 
+                      <button
+                        onClick={() => handleStartRound(group.id)}
+                        disabled={hasOpenSprint}
                         className="monitor-form__submit"
                       >
                         {hasOpenSprint ? 'Finalize a sprint anterior primeiro' : 'Lançar para Alunos'}
@@ -385,8 +455,15 @@ const MonitorPanel: React.FC = () => {
 
                   <div className="monitor-rounds-list">
                     {groupRounds.map(round => {
-                      const roundAssignments = assignments.filter(a => a.roundId === round.id && !a.isToMonitor);
-                      const submittedCount = roundAssignments.filter(s => s.status === 'SUBMITTED').length;
+                      const roundIdLower = String(round.id).toLowerCase().trim();
+                      const roundAssignments = assignments.filter(a => String(a.roundId).toLowerCase().trim() === roundIdLower && !a.isToMonitor);
+                      const submittedAssignmentsCount = roundAssignments.filter(s => s.status === 'SUBMITTED').length;
+
+                      const roundEvals = courseEvaluations.filter(e => String(e.roundId).toLowerCase().trim() === roundIdLower);
+                      const groupStudents = users.filter(u => String(u.groupId).toLowerCase().trim() === String(round.groupId).toLowerCase().trim() && u.role === Role.STUDENT);
+
+                      const totalTasks = roundAssignments.length + groupStudents.length;
+                      const totalSubmitted = submittedAssignmentsCount + roundEvals.length;
 
                       const isReview = round.status === RoundStatus.UNDER_REVIEW;
                       const isCompleted = round.status === RoundStatus.COMPLETED;
@@ -408,7 +485,7 @@ const MonitorPanel: React.FC = () => {
                                   </button>
                                 )}
                               </div>
-                              <span className="monitor-round-card__meta">{submittedCount} de {roundAssignments.length} entregas realizadas</span>
+                              <span className="monitor-round-card__meta">{totalSubmitted} de {totalTasks} entregas realizadas</span>
                             </div>
                             <span className={`monitor-status-badge ${isCompleted ? 'monitor-status-badge--completed' : isReview ? 'monitor-status-badge--review' : 'monitor-status-badge--active'}`}>
                               {isCompleted ? <CheckCircle size={14} /> : <Clock size={14} />}
@@ -420,7 +497,7 @@ const MonitorPanel: React.FC = () => {
                             <div className="monitor-round-card__footer">
                               <button
                                 onClick={() => handleGenerateAllReports(round.id)}
-                                disabled={batchProcessing === round.id || submittedCount === 0}
+                                disabled={batchProcessing === round.id || totalSubmitted === 0}
                                 className="monitor-round-card__action-btn"
                               >
                                 {batchProcessing === round.id ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />} Consolidar IA
@@ -472,7 +549,12 @@ const MonitorPanel: React.FC = () => {
                                 </div>
                               </div>
                             </div>
-                            <button onClick={() => showToast(`Cobrança enviada para ${student.name.split(' ')[0]}!`)} className="monitor-student-pending-card__send-btn">
+                            <button
+                              onClick={() => showToast(`Cobrança enviada para ${student.name.split(' ')[0]}!`)}
+                              className="monitor-student-pending-card__send-btn"
+                              disabled={!peerPendingCount && !missingMonitor && !missingCourse}
+                              title={(!peerPendingCount && !missingMonitor && !missingCourse) ? "Tudo em dia" : "Enviar cobrança"}
+                            >
                               <Send size={16} />
                             </button>
                           </div>

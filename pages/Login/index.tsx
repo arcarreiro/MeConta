@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { Store } from '../../services/store';
 import { Mail, Lock, User as UserIcon, Loader2, AlertCircle, Eye, EyeOff, CheckCircle2 } from 'lucide-react';
 import { BrandLogo } from '../../components/BrandLogo';
@@ -162,6 +162,17 @@ const Login: React.FC = () => {
               )}
             </button>
           </div>
+
+          {isLogin && (
+            <div className="flex justify-end pt-1">
+              <Link
+                to="/forgot-password"
+                className="text-xs font-bold text-slate-400 hover:text-violet-600 transition-colors"
+              >
+                Esqueceu sua senha?
+              </Link>
+            </div>
+          )}
 
           {!isLogin && (
             <div className="login-field">

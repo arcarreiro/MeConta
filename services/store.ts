@@ -177,8 +177,16 @@ export class Store {
     }).eq('id', u.id);
   }
 
-   static async updatePassword(newPassword: string): Promise<{ success: boolean; error?: string }> {
+  static async updatePassword(newPassword: string): Promise<{ success: boolean; error?: string }> {
     const { error } = await supabase.auth.updateUser({ password: newPassword });
+    if (error) return { success: false, error: error.message };
+    return { success: true };
+  }
+
+  static async sendPasswordResetEmail(email: string): Promise<{ success: boolean; error?: string }> {
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}/#/reset-password`,
+    });
     if (error) return { success: false, error: error.message };
     return { success: true };
   }

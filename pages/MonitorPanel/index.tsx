@@ -15,9 +15,11 @@ import {
   CheckCircle,
   Send,
   MessageSquare,
+  Star,
   Trash2,
   UserCheck
 } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import { synthesizeFeedback, synthesizeMonitorFeedback } from '../../services/gemini';
 import { Toast } from '../../components/ui/Toast';
 import { DeleteRoundModal } from '../../components/modals/DeleteRoundModal';
@@ -40,6 +42,7 @@ const MonitorPanel: React.FC = () => {
   const [approvingId, setApprovingId] = useState<string | null>(null);
   const [deletingRoundId, setDeletingRoundId] = useState<string | null>(null);
   const [configGroupId, setConfigGroupId] = useState<string | null>(null);
+  const [showMyFeedbacks, setShowMyFeedbacks] = useState(false);
   const [newRoundName, setNewRoundName] = useState('');
   const [newRoundDeadline, setNewRoundDeadline] = useState('');
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
@@ -93,7 +96,7 @@ const MonitorPanel: React.FC = () => {
 
         const pendingReports = studentReports.filter(rep => !rep.isApproved);
 
-        
+
 
         // Se existem relatórios mas ainda está ACTIVE → mover para UNDER_REVIEW
         if (round.status === RoundStatus.ACTIVE && studentReports.length > 0) {
@@ -323,6 +326,18 @@ const MonitorPanel: React.FC = () => {
   const hasActiveCollectingRound = activeRounds.some(r => r.status === RoundStatus.ACTIVE);
   const showTasksFirst = hasActiveCollectingRound && myPendingTasks.length > 0;
 
+  const myMonitorReports = reports
+    .filter(r => r.targetId === me?.id && r.type === 'MONITOR')
+    .sort((a, b) => b.createdAt - a.createdAt);
+
+  const getReportTitle = (report: SynthesizedReport) => {
+    const rId = Array.isArray(report.roundId) ? report.roundId[0] : report.roundId;
+    const round = activeRounds.find(rd => rd.id === rId);
+    if (!round) return "Feedback Recebido";
+    const group = groups.find(g => g.id === round.groupId);
+    return `${group?.name || 'Turma'} - ${round.name}`;
+  };
+
   const getStudentsWithPendingTasks = (round: FeedbackRound) => {
     const roundIdLower = String(round.id).toLowerCase().trim();
     const groupStudents = users.filter(u => String(u.groupId).toLowerCase().trim() === String(round.groupId).toLowerCase().trim() && u.role === Role.STUDENT);
@@ -387,229 +402,304 @@ const MonitorPanel: React.FC = () => {
       <div className="monitor-header">
         <div className="monitor-header__titles">
           <h1 className="monitor-header__title">Mentoria</h1>
-          <p className="monitor-header__subtitle">Acompanhe o progresso das turmas e revise os relatórios.</p>
+          <p className="monitor-header__subtitle">
+            Acompanhe o progresso das turmas e revise os relatórios.
+          </p>
         </div>
-        <button onClick={refreshData} className="monitor-header__refresh">
-          <RefreshCw className="monitor-header__refresh-icon" /> Sincronizar Dados
-        </button>
+
+        <div className="monitor-header__actions">
+          <button
+            onClick={() => setShowMyFeedbacks(!showMyFeedbacks)}
+            className={`btn-toggle ${showMyFeedbacks ? 'btn-toggle--active' : ''}`}
+          >
+            <Star className="icon-sm" />
+            {showMyFeedbacks ? 'Ver Painel de Mentoria' : 'Meus Feedbacks'}
+          </button>
+
+          <button onClick={refreshData} className="monitor-header__refresh">
+            <RefreshCw className="monitor-header__refresh-icon" />
+            Sincronizar Dados
+          </button>
+        </div>
       </div>
 
-      <div className="monitor-grid">
-        <div className="monitor-grid__left">
-          <div className="monitor-section">
-            <h2 className="monitor-section__title">
-              <Clock className="monitor-section__title-icon monitor-section__title-icon--violet" /> Atividades das Turmas
+      {showMyFeedbacks ? (
+        <div className="feedback-section animate-slide-down">
+          <div className="feedback-container">
+            <h2 className="feedback-section__title">
+              <Star className="icon-md text-amber" />
+              Meus Feedbacks Consolidados
             </h2>
-            {groups.map(group => {
-              const groupRounds = activeRounds.filter(r => r.groupId === group.id);
-              const hasOpenSprint = groupRounds.some(r => r.status === RoundStatus.ACTIVE || r.status === RoundStatus.UNDER_REVIEW);
-              return (
-                <div key={group.id} className="monitor-card">
-                  <div className="monitor-card__header">
-                    <h3 className="monitor-card__group-name">{group.name}</h3>
-                    <button
-                      onClick={() => setConfigGroupId(configGroupId === group.id ? null : group.id)}
-                      className={`monitor-card__toggle-btn ${configGroupId === group.id ? 'monitor-card__toggle-btn--active' : ''}`}
-                    >
-                      {configGroupId === group.id ? <X /> : <Plus />}
-                    </button>
+
+            <div className="feedback-grid">
+              {myMonitorReports.map(report => (
+                <div key={report.id} className="feedback-card group">
+                  <div className="feedback-card__body">
+                    <div className="feedback-card__header">
+                      <div className="feedback-card__icon-wrapper">
+                        <Sparkles className="icon-md" />
+                      </div>
+                      <span className="feedback-card__date">
+                        {new Date(report.createdAt).toLocaleDateString()}
+                      </span>
+                    </div>
+
+                    <div className="feedback-card__content">
+                      <h3 className="feedback-card__title">
+                        {getReportTitle(report)}
+                      </h3>
+                      <p className="feedback-card__text">
+                        {report.content}
+                      </p>
+                    </div>
                   </div>
 
-                  {configGroupId === group.id && (
-                    <div className="monitor-form">
-                      <div className="monitor-form__header">
-                        <p className="monitor-form__subtitle">Lançar Nova Sprint</p>
-                        {hasOpenSprint && (
-                          <span className="monitor-form__alert">
-                            <AlertCircle className="monitor-form__alert-icon" /> Turma já possui sprint ativa
-                          </span>
-                        )}
-                      </div>
-                      <input
-                        type="text"
-                        placeholder="Ex: Sprint 01 - Onboarding"
-                        className="monitor-form__input"
-                        value={newRoundName}
-                        onChange={(e) => setNewRoundName(e.target.value)}
-                        disabled={hasOpenSprint}
-                      />
-                      <div className="monitor-form__field">
-                        <label className="monitor-form__label">Data de Encerramento</label>
-                        <input
-                          type="date"
-                          className="monitor-form__input"
-                          value={newRoundDeadline}
-                          onChange={(e) => setNewRoundDeadline(e.target.value)}
-                          disabled={hasOpenSprint}
-                        />
-                      </div>
-                      <button
-                        onClick={() => handleStartRound(group.id)}
-                        disabled={hasOpenSprint}
-                        className="monitor-form__submit"
-                      >
-                        {hasOpenSprint ? 'Finalize a sprint anterior primeiro' : 'Lançar para Alunos'}
-                      </button>
-                    </div>
-                  )}
-
-                  <div className="monitor-rounds-list">
-                    {groupRounds.map(round => {
-                      const roundIdLower = String(round.id).toLowerCase().trim();
-                      const roundAssignments = assignments.filter(a => String(a.roundId).toLowerCase().trim() === roundIdLower && !a.isToMonitor);
-                      const submittedAssignmentsCount = roundAssignments.filter(s => s.status === 'SUBMITTED').length;
-
-                      const roundEvals = courseEvaluations.filter(e => String(e.roundId).toLowerCase().trim() === roundIdLower);
-                      const groupStudents = users.filter(u => String(u.groupId).toLowerCase().trim() === String(round.groupId).toLowerCase().trim() && u.role === Role.STUDENT);
-
-                      const totalTasks = roundAssignments.length + groupStudents.length;
-                      const totalSubmitted = submittedAssignmentsCount + roundEvals.length;
-
-                      const isReview = round.status === RoundStatus.UNDER_REVIEW;
-                      const isCompleted = round.status === RoundStatus.COMPLETED;
-                      const isActive = round.status === RoundStatus.ACTIVE;
-
-                      return (
-                        <div key={round.id} className={`monitor-round-card ${isCompleted ? 'monitor-round-card--completed' : isReview ? 'monitor-round-card--review' : 'monitor-round-card--active'}`}>
-                          <div className="monitor-round-card__main">
-                            <div className="monitor-round-card__info">
-                              <div className="monitor-round-card__title-row">
-                                <span className="monitor-round-card__name">{round.name}</span>
-                                {!isCompleted && (
-                                  <button
-                                    onClick={() => setDeletingRoundId(round.id)}
-                                    className="monitor-round-card__delete"
-                                    title="Excluir Sprint"
-                                  >
-                                    <Trash2 size={16} />
-                                  </button>
-                                )}
-                              </div>
-                              <span className="monitor-round-card__meta">{totalSubmitted} de {totalTasks} entregas realizadas</span>
-                            </div>
-                            <span className={`monitor-status-badge ${isCompleted ? 'monitor-status-badge--completed' : isReview ? 'monitor-status-badge--review' : 'monitor-status-badge--active'}`}>
-                              {isCompleted ? <CheckCircle size={14} /> : <Clock size={14} />}
-                              {isCompleted ? 'Finalizada' : isReview ? 'Em Revisão' : 'Coletando'}
-                            </span>
-                          </div>
-
-                          {isActive && (
-                            <div className="monitor-round-card__footer">
-                              <button
-                                onClick={() => handleGenerateAllReports(round.id)}
-                                disabled={batchProcessing === round.id || totalSubmitted === 0}
-                                className="monitor-round-card__action-btn"
-                              >
-                                {batchProcessing === round.id ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />} Consolidar IA
-                              </button>
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })}
-                    {groupRounds.length === 0 && <div className="monitor-empty-state">Aguardando lançamento de sprints.</div>}
+                  <div className="feedback-card__footer">
+                    <Link
+                      to={`/monitor-report/${report.id}`}
+                      className="btn-view-report"
+                    >
+                      Ver Relatório Completo
+                    </Link>
                   </div>
                 </div>
-              );
-            })}
+              ))}
+
+              {myMonitorReports.length === 0 && (
+                <div className="feedback-empty">
+                  <div className="feedback-empty__icon-container">
+                    <Star className="icon-lg" />
+                  </div>
+                  <div className="feedback-empty__texts">
+                    <p className="feedback-empty__title">Nenhum feedback consolidado ainda.</p>
+                    <p className="feedback-empty__subtitle">
+                      Os feedbacks aparecem aqui após os alunos preencherem a avaliação da mentoria e a IA realizar a síntese.
+                    </p>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
+        </div>
+      ) : (
 
-          <section className="monitor-section">
-            <h2 className="monitor-section__title">
-              <UserCheck className="monitor-section__title-icon monitor-section__title-icon--rose" /> Cobrança de Preenchimento
-            </h2>
-            <div className="monitor-collection-card">
-              <div className="monitor-collection-card__header">
-                <p className="monitor-collection-card__subtitle">Alunos com tarefas pendentes nas sprints ativas.</p>
-              </div>
-              <div className="monitor-collection-list">
-                {activeRounds.filter(r => r.status === RoundStatus.ACTIVE).map(round => {
-                  const pendings = getStudentsWithPendingTasks(round);
-                  if (pendings.length === 0) return null;
+        <div className="monitor-grid">
+          <div className="monitor-grid__left">
+            <div className="monitor-section">
+              <h2 className="monitor-section__title">
+                <Clock className="monitor-section__title-icon monitor-section__title-icon--violet" /> Atividades das Turmas
+              </h2>
+              {groups.map(group => {
+                const groupRounds = activeRounds.filter(r => r.groupId === group.id);
+                const hasOpenSprint = groupRounds.some(r => r.status === RoundStatus.ACTIVE || r.status === RoundStatus.UNDER_REVIEW);
+                return (
+                  <div key={group.id} className="monitor-card">
+                    <div className="monitor-card__header">
+                      <h3 className="monitor-card__group-name">{group.name}</h3>
+                      <button
+                        onClick={() => setConfigGroupId(configGroupId === group.id ? null : group.id)}
+                        className={`monitor-card__toggle-btn ${configGroupId === group.id ? 'monitor-card__toggle-btn--active' : ''}`}
+                      >
+                        {configGroupId === group.id ? <X /> : <Plus />}
+                      </button>
+                    </div>
 
-                  return (
-                    <div key={round.id} className="monitor-collection-group">
-                      <div className="monitor-collection-group__header">
-                        <span className="monitor-collection-group__label">Sprint:</span>
-                        <span className="monitor-collection-group__name">{round.name}</span>
+                    {configGroupId === group.id && (
+                      <div className="monitor-form">
+                        <div className="monitor-form__header">
+                          <p className="monitor-form__subtitle">Lançar Nova Sprint</p>
+                          {hasOpenSprint && (
+                            <span className="monitor-form__alert">
+                              <AlertCircle className="monitor-form__alert-icon" /> Turma já possui sprint ativa
+                            </span>
+                          )}
+                        </div>
+                        <input
+                          type="text"
+                          placeholder="Ex: Sprint 01 - Onboarding"
+                          className="monitor-form__input"
+                          value={newRoundName}
+                          onChange={(e) => setNewRoundName(e.target.value)}
+                          disabled={hasOpenSprint}
+                        />
+                        <div className="monitor-form__field">
+                          <label className="monitor-form__label">Data de Encerramento</label>
+                          <input
+                            type="date"
+                            className="monitor-form__input"
+                            value={newRoundDeadline}
+                            onChange={(e) => setNewRoundDeadline(e.target.value)}
+                            disabled={hasOpenSprint}
+                          />
+                        </div>
+                        <button
+                          onClick={() => handleStartRound(group.id)}
+                          disabled={hasOpenSprint}
+                          className="monitor-form__submit"
+                        >
+                          {hasOpenSprint ? 'Finalize a sprint anterior primeiro' : 'Lançar para Alunos'}
+                        </button>
                       </div>
-                      <div className="monitor-collection-grid">
-                        {pendings.map(({ student, peerPendingCount, missingMonitor, missingCourse }) => (
-                          <div key={student.id} className="monitor-student-pending-card">
-                            <div className="monitor-student-pending-card__info">
-                              <div className="monitor-student-avatar">
-                                {student.photoUrl ? <img src={student.photoUrl} className="monitor-student-avatar__img" /> : <UserIcon size={20} />}
+                    )}
+
+                    <div className="monitor-rounds-list">
+                      {groupRounds.map(round => {
+                        const roundIdLower = String(round.id).toLowerCase().trim();
+                        const roundAssignments = assignments.filter(a => String(a.roundId).toLowerCase().trim() === roundIdLower && !a.isToMonitor);
+                        const submittedAssignmentsCount = roundAssignments.filter(s => s.status === 'SUBMITTED').length;
+
+                        const roundEvals = courseEvaluations.filter(e => String(e.roundId).toLowerCase().trim() === roundIdLower);
+                        const groupStudents = users.filter(u => String(u.groupId).toLowerCase().trim() === String(round.groupId).toLowerCase().trim() && u.role === Role.STUDENT);
+
+                        const totalTasks = roundAssignments.length + groupStudents.length;
+                        const totalSubmitted = submittedAssignmentsCount + roundEvals.length;
+
+                        const isReview = round.status === RoundStatus.UNDER_REVIEW;
+                        const isCompleted = round.status === RoundStatus.COMPLETED;
+                        const isActive = round.status === RoundStatus.ACTIVE;
+
+                        return (
+                          <div key={round.id} className={`monitor-round-card ${isCompleted ? 'monitor-round-card--completed' : isReview ? 'monitor-round-card--review' : 'monitor-round-card--active'}`}>
+                            <div className="monitor-round-card__main">
+                              <div className="monitor-round-card__info">
+                                <div className="monitor-round-card__title-row">
+                                  <span className="monitor-round-card__name">{round.name}</span>
+                                  {!isCompleted && (
+                                    <button
+                                      onClick={() => setDeletingRoundId(round.id)}
+                                      className="monitor-round-card__delete"
+                                      title="Excluir Sprint"
+                                    >
+                                      <Trash2 size={16} />
+                                    </button>
+                                  )}
+                                </div>
+                                <span className="monitor-round-card__meta">{totalSubmitted} de {totalTasks} entregas realizadas</span>
                               </div>
-                              <div className="monitor-student-pending-card__details">
-                                <div className="monitor-student-pending-card__name">{student.name}</div>
-                                <div className="monitor-student-pending-card__tags">
-                                  {peerPendingCount > 0 && <span className="monitor-tag monitor-tag--rose">{peerPendingCount} Pares</span>}
-                                  {missingMonitor && <span className="monitor-tag monitor-tag--violet">Mentoria</span>}
-                                  {missingCourse && <span className="monitor-tag monitor-tag--amber">Curso</span>}
+                              <span className={`monitor-status-badge ${isCompleted ? 'monitor-status-badge--completed' : isReview ? 'monitor-status-badge--review' : 'monitor-status-badge--active'}`}>
+                                {isCompleted ? <CheckCircle size={14} /> : <Clock size={14} />}
+                                {isCompleted ? 'Finalizada' : isReview ? 'Em Revisão' : 'Coletando'}
+                              </span>
+                            </div>
+
+                            {isActive && (
+                              <div className="monitor-round-card__footer">
+                                <button
+                                  onClick={() => handleGenerateAllReports(round.id)}
+                                  disabled={batchProcessing === round.id || totalSubmitted === 0}
+                                  className="monitor-round-card__action-btn"
+                                >
+                                  {batchProcessing === round.id ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />} Consolidar IA
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                      {groupRounds.length === 0 && <div className="monitor-empty-state">Aguardando lançamento de sprints.</div>}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            <section className="monitor-section">
+              <h2 className="monitor-section__title">
+                <UserCheck className="monitor-section__title-icon monitor-section__title-icon--rose" /> Cobrança de Preenchimento
+              </h2>
+              <div className="monitor-collection-card">
+                <div className="monitor-collection-card__header">
+                  <p className="monitor-collection-card__subtitle">Alunos com tarefas pendentes nas sprints ativas.</p>
+                </div>
+                <div className="monitor-collection-list">
+                  {activeRounds.filter(r => r.status === RoundStatus.ACTIVE).map(round => {
+                    const pendings = getStudentsWithPendingTasks(round);
+                    if (pendings.length === 0) return null;
+
+                    return (
+                      <div key={round.id} className="monitor-collection-group">
+                        <div className="monitor-collection-group__header">
+                          <span className="monitor-collection-group__label">Sprint:</span>
+                          <span className="monitor-collection-group__name">{round.name}</span>
+                        </div>
+                        <div className="monitor-collection-grid">
+                          {pendings.map(({ student, peerPendingCount, missingMonitor, missingCourse }) => (
+                            <div key={student.id} className="monitor-student-pending-card">
+                              <div className="monitor-student-pending-card__info">
+                                <div className="monitor-student-avatar">
+                                  {student.photoUrl ? <img src={student.photoUrl} className="monitor-student-avatar__img" /> : <UserIcon size={20} />}
+                                </div>
+                                <div className="monitor-student-pending-card__details">
+                                  <div className="monitor-student-pending-card__name">{student.name}</div>
+                                  <div className="monitor-student-pending-card__tags">
+                                    {peerPendingCount > 0 && <span className="monitor-tag monitor-tag--rose">{peerPendingCount} Pares</span>}
+                                    {missingMonitor && <span className="monitor-tag monitor-tag--violet">Mentoria</span>}
+                                    {missingCourse && <span className="monitor-tag monitor-tag--amber">Curso</span>}
+                                  </div>
                                 </div>
                               </div>
+                              <button
+                                onClick={() => showToast(`Cobrança enviada para ${student.name.split(' ')[0]}!`)}
+                                className="monitor-student-pending-card__send-btn"
+                                disabled={!peerPendingCount && !missingMonitor && !missingCourse}
+                                title={(!peerPendingCount && !missingMonitor && !missingCourse) ? "Tudo em dia" : "Enviar cobrança"}
+                              >
+                                <Send size={16} />
+                              </button>
                             </div>
-                            <button
-                              onClick={() => showToast(`Cobrança enviada para ${student.name.split(' ')[0]}!`)}
-                              className="monitor-student-pending-card__send-btn"
-                              disabled={!peerPendingCount && !missingMonitor && !missingCourse}
-                              title={(!peerPendingCount && !missingMonitor && !missingCourse) ? "Tudo em dia" : "Enviar cobrança"}
-                            >
-                              <Send size={16} />
-                            </button>
-                          </div>
-                        ))}
+                          ))}
+                        </div>
                       </div>
+                    );
+                  })}
+                  {activeRounds.filter(r => r.status === RoundStatus.ACTIVE).every(r => getStudentsWithPendingTasks(r).length === 0) && (
+                    <div className="monitor-all-clear">
+                      <div className="monitor-all-clear__icon-wrapper">
+                        <CheckCircle2 size={32} />
+                      </div>
+                      <p className="monitor-all-clear__text">Todos os alunos estão em dia!</p>
                     </div>
-                  );
-                })}
-                {activeRounds.filter(r => r.status === RoundStatus.ACTIVE).every(r => getStudentsWithPendingTasks(r).length === 0) && (
-                  <div className="monitor-all-clear">
-                    <div className="monitor-all-clear__icon-wrapper">
-                      <CheckCircle2 size={32} />
-                    </div>
-                    <p className="monitor-all-clear__text">Todos os alunos estão em dia!</p>
-                  </div>
-                )}
+                  )}
+                </div>
               </div>
-            </div>
-          </section>
-        </div>
+            </section>
+          </div>
 
-        <div className="monitor-grid__right">
-          {showTasksFirst ? (
-            <TasksQueue
-              tasks={myPendingTasks}
-              users={users}
-              rounds={activeRounds}
-              expandedTaskId={expandedTaskId}
-              taskText={taskText}
-              onToggleExpand={setExpandedTaskId}
-              onChangeTaskText={(taskId, value) =>
-                setTaskText((prev) => ({ ...prev, [taskId]: value }))
-              }
-              onSubmitTask={handleSubmitTask}
-            />
-          ) : (
-            <ApprovalQueue
-              reports={reportsForApproval}
-              users={users}
-              rounds={activeRounds}
-              refinementText={refinementText}
-              refiningId={refiningId}
-              expandedReportId={expandedReportId}
-              onToggleExpand={setExpandedReportId}
-              onChangeRefinement={(id, value) =>
-                setRefinementText((prev) => ({ ...prev, [id]: value }))
-              }
-              onRefine={handleRefineReport}
-              onApproveClick={(reportId, roundId) =>
-                setReportToApprove({ id: reportId, roundId })
-              }
-            />
-          )}
+          <div className="monitor-grid__right">
+            {showTasksFirst ? (
+              <TasksQueue
+                tasks={myPendingTasks}
+                users={users}
+                rounds={activeRounds}
+                expandedTaskId={expandedTaskId}
+                taskText={taskText}
+                onToggleExpand={setExpandedTaskId}
+                onChangeTaskText={(taskId, value) =>
+                  setTaskText((prev) => ({ ...prev, [taskId]: value }))
+                }
+                onSubmitTask={handleSubmitTask}
+              />
+            ) : (
+              <ApprovalQueue
+                reports={reportsForApproval}
+                users={users}
+                rounds={activeRounds}
+                refinementText={refinementText}
+                refiningId={refiningId}
+                expandedReportId={expandedReportId}
+                onToggleExpand={setExpandedReportId}
+                onChangeRefinement={(id, value) =>
+                  setRefinementText((prev) => ({ ...prev, [id]: value }))
+                }
+                onRefine={handleRefineReport}
+                onApproveClick={(reportId, roundId) =>
+                  setReportToApprove({ id: reportId, roundId })
+                }
+              />
+            )}
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 };

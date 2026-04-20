@@ -95,8 +95,8 @@ const ResetPassword: React.FC = () => {
                             />
                             <button
                                 type="button"
-                                className="toggle-password"
                                 onClick={() => setShowPassword(!showPassword)}
+                                className="toggle-password"
                             >
                                 {showPassword ? <EyeOff className="icon-sm" /> : <Eye className="icon-sm" />}
                             </button>

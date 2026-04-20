@@ -10,6 +10,7 @@ import { PageLayout } from '../../components/Layout/PageLayout/index';
 import Login from '../../pages/Login/index';
 import ForgotPassword from '../../pages/ForgotPassword/index';
 import ResetPassword from '../../pages/ResetPassword/index';
+import AuthConfirm from '../../pages/AuthConfirm/index'
 import Dashboard from '../../pages/Dashboard/index';
 import AdminPanel from '../../pages/AdminPanel/index';
 import UserManagement from '../../pages/UserManagement/index';
@@ -28,6 +29,7 @@ export const AppRoutes: React.FC = () => {
             <Route path="/login" element={<Login />} />
             <Route path="/forgot-password" element={<ForgotPassword />} />
             <Route path="/reset-password" element={<ResetPassword />} />
+            <Route path="/auth/confirm" element={<AuthConfirm />} />
 
             <Route path="/" element={
                 <PrivateRoute>

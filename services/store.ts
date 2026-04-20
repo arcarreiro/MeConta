@@ -183,6 +183,15 @@ export class Store {
     return { success: true };
   }
 
+  static async verifyOtp(token_hash: string, type: string): Promise<{ success: boolean; error?: string }> {
+    const { error } = await supabase.auth.verifyOtp({
+      token_hash,
+      type: type as any,
+    });
+    if (error) return { success: false, error: error.message };
+    return { success: true };
+  }
+
   static async sendPasswordResetEmail(email: string): Promise<{ success: boolean; error?: string }> {
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
       redirectTo: `${window.location.origin}/#/reset-password`,

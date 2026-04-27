@@ -102,8 +102,8 @@ const TrajectoryReportView: React.FC = () => {
           </div>
           
           <div className="trajectory-article__body">
-             <div className="trajectory-article__content">
-                {report.content}
+             <div className="trajectory-article__content" dangerouslySetInnerHTML={{ __html: report.content }}>
+                
              </div>
           </div>
         </article>

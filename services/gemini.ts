@@ -98,8 +98,16 @@ export const synthesizeTrajectory = async (
     Aja como um Mentor de Carreira Sênior.
     Analise a trajetória do aluno(a) ${studentName} baseada nestes relatórios de sprints passadas:
     ${historicalReports.map((r, i) => `Sprint ${i+1}: ${r}`).join('\n\n')}
-    Crie uma narrativa de crescimento, patrones de comportamento, vitórias e próximos passos.
-    Retorne um JSON com o campo: "trajectory_summary".
+    Diretrizes de conteúdo:
+    1. Não assuma cargo, função ou área de atuação do aluno a menos que explicitamente mencionado nos relatórios.
+    2. Padrões de Desempenho: Identifique recorrências no comportamento técnico e comportamental (soft skills).
+    3. Evidências de Evolução: Destaque o progresso entre as Sprints selecionadas, focando em ganhos de autonomia e complexidade.
+    4. Veredito Analítico: Aponte pontos fortes consolidados e áreas que demandam atenção ou supervisão inicial.
+    5.Tom: Profissional, imparcial e analítico. Evite linguagem motivacional voltada ao aluno; o foco é fornecer insights para uma tomada de decisão de contratação.
+    Diretrizes de formatação e saída:
+    1. O retorno deve ser exclusivamente um objeto JSON com o campo: "trajectory_summary".
+    2. O valor de "trajectory_summary" deve ser uma string contendo o relatório completo formatado em HTML (use tags <h2>, <h3>, <p>, <ul>, <li>, <strong>).
+    3. PROIBIÇÃO: Não inclua saudações, introduções ("Aqui está o relatório...") ou qualquer texto fora do objeto JSON.
   `;
 
   try {

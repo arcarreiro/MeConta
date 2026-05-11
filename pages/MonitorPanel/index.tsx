@@ -65,46 +65,46 @@ const MonitorPanel: React.FC = () => {
   const refreshData = async () => {
     setLoading(true);
     try {
-      const [allGroups, allUsers, allRounds, allAssignments, allReports, allEvals] = await Promise.all([
-        Store.getGroups(),
-        Store.getUsers(),
-        Store.getRounds(),
-        Store.getAssignments(),
-        Store.getReports(),
-        Store.getCourseEvaluations()
+      // 1. Get Groups (restricted to monitor unless admin)
+      const myGroups = await Store.getGroups(me?.role === Role.ADMIN ? undefined : { monitorId: me?.id });
+      const groupIds = myGroups.map(g => g.id);
+
+      // 2. Fetch basic data in parallel
+      const [allUsers, allRounds, myOwnReports] = await Promise.all([
+        Store.getUsers({ groupId: groupIds }), 
+        Store.getRounds({ groupId: groupIds }),
+        Store.getReports({ targetId: me?.id, type: 'MONITOR' })
       ]);
 
-      const myGroups = allGroups.filter(g => g.monitorIds.includes(me?.id || '') || me?.role === Role.ADMIN);
+      const roundIds = allRounds.map(r => r.id);
+      
+      // 3. Fetch dependent data in parallel
+      const [studentReportsForApproval, filteredAssignments, filteredEvals] = await Promise.all([
+        Store.getReports({ roundId: roundIds, type: 'STUDENT' }),
+        Store.getAssignments({ roundId: roundIds }),
+        Store.getCourseEvaluations({ roundId: roundIds })
+      ]);
+
+      // Combine reports: monitor's own reports + student reports for rounds they manage
+      const combinedReports = [...studentReportsForApproval, ...myOwnReports];
 
       // Safety Logic: Auto-complete rounds in UNDER_REVIEW with no pending reports
-      const roundsToCheck = allRounds.filter(r =>
-        (r.status === RoundStatus.ACTIVE || r.status === RoundStatus.UNDER_REVIEW) &&
-        myGroups.some(g =>
-          String(g.id).toLowerCase().trim() ===
-          String(r.groupId).toLowerCase().trim()
-        )
-      );
-
-      for (const round of roundsToCheck) {
-        const roundIdLower = String(round.id).toLowerCase().trim();
-
-        const studentReports = allReports.filter(rep => {
+      for (const round of allRounds) {
+        if (round.status === RoundStatus.COMPLETED) continue;
+        
+        const roundId = round.id;
+        const studentReports = studentReportsForApproval.filter(rep => {
           const repRoundId = Array.isArray(rep.roundId) ? rep.roundId[0] : rep.roundId;
-          return String(repRoundId).toLowerCase().trim() === roundIdLower &&
-            rep.type === 'STUDENT';
+          return repRoundId === roundId;
         });
 
         const pendingReports = studentReports.filter(rep => !rep.isApproved);
 
-
-
-        // Se existem relatórios mas ainda está ACTIVE → mover para UNDER_REVIEW
         if (round.status === RoundStatus.ACTIVE && studentReports.length > 0) {
           await Store.updateRoundStatus(round.id, RoundStatus.UNDER_REVIEW);
           round.status = RoundStatus.UNDER_REVIEW;
         }
 
-        // Se não há pendentes → completar
         if (pendingReports.length === 0 && studentReports.length > 0) {
           await Store.completeRound(round.id);
           round.status = RoundStatus.COMPLETED;
@@ -113,10 +113,10 @@ const MonitorPanel: React.FC = () => {
 
       setUsers(allUsers);
       setGroups(myGroups);
-      setActiveRounds(allRounds.filter(r => myGroups.some(g => String(g.id).toLowerCase().trim() === String(r.groupId).toLowerCase().trim())));
-      setAssignments(allAssignments);
-      setReports(allReports);
-      setCourseEvaluations(allEvals);
+      setActiveRounds(allRounds);
+      setAssignments(filteredAssignments);
+      setReports(combinedReports);
+      setCourseEvaluations(filteredEvals);
     } catch (err) {
       console.error("Error refreshing monitor data:", err);
     } finally {

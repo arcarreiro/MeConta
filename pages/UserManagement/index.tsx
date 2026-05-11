@@ -25,17 +25,33 @@ const UserManagement: React.FC = () => {
 
   useEffect(() => {
     refresh();
-  }, []);
+  }, [filterGroup]);
 
   const refresh = async () => {
     setLoading(true);
-    const [fetchedUsers, fetchedGroups] = await Promise.all([
-      Store.getUsers(),
-      Store.getGroups()
-    ]);
-    setUsers(fetchedUsers);
-    setGroups(fetchedGroups);
-    setLoading(false);
+    try {
+      const filterParams: any = {};
+      if (filterGroup !== 'all' && filterGroup !== 'unallocated') {
+        filterParams.groupId = filterGroup;
+      }
+      
+      const [fetchedUsers, fetchedGroups] = await Promise.all([
+        Store.getUsers(filterParams),
+        Store.getGroups()
+      ]);
+      
+      let processedUsers = fetchedUsers;
+      if (filterGroup === 'unallocated') {
+        processedUsers = fetchedUsers.filter(u => !u.groupId);
+      }
+
+      setUsers(processedUsers);
+      setGroups(fetchedGroups);
+    } catch (err) {
+      console.error("Error refreshing users:", err);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handlePromote = async (userId: string) => {

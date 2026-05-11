@@ -40,46 +40,48 @@ const StudentPanel: React.FC = () => {
 
   const refresh = async () => {
     try {
-      const [allAssignments, allGroups, allRounds, allReports, allUsers, allEvals] = await Promise.all([
-        Store.getAssignments(),
-        Store.getGroups(),
-        Store.getRounds(),
-        Store.getReports(),
-        Store.getUsers(),
-        Store.getCourseEvaluations()
+      const myId = me?.id || '';
+      const myGroupId = me?.groupId || '';
+
+      const [myAssignments, myGroup, myRounds, myReports, allUsers, myEvals] = await Promise.all([
+        Store.getAssignments({ giverId: myId }),
+        Store.getGroups(), // Ideally Store.getGroupById(myGroupId)
+        Store.getRounds({ groupId: myGroupId }),
+        Store.getReports({ targetId: myId, type: 'STUDENT' }),
+        Store.getUsers(), // We might still need many users for peer feedbackgiver/receiver names
+        Store.getCourseEvaluations({ studentId: myId })
       ]);
 
       setUsers(allUsers);
-      setGroups(allGroups);
-      setRounds(allRounds);
+      setGroups(myGroup);
+      setRounds(myRounds);
 
-      const myGroup = allGroups.find(g => g.id === me?.groupId);
-      const active = allRounds.filter(r =>
-        String(r.groupId).toLowerCase() === String(me?.groupId).toLowerCase() &&
+      const myGroupDetails = myGroup.find(g => g.id === myGroupId);
+      const active = myRounds.filter(r =>
         (r.status === RoundStatus.ACTIVE || r.status === RoundStatus.UNDER_REVIEW)
       );
 
-      if (myGroup) {
+      if (myGroupDetails) {
         const monitors = allUsers.filter(u =>
-          myGroup.monitorIds.some(mId => String(mId).toLowerCase() === String(u.id).toLowerCase())
+          myGroupDetails.monitorIds.some(mId => String(mId).toLowerCase() === String(u.id).toLowerCase())
         );
         setMonitorsInGroup(monitors);
       }
 
       setActiveRounds(active);
-      setTasks(allAssignments.filter(a =>
-        String(a.giverId).toLowerCase() === String(me?.id).toLowerCase() &&
+      
+      // Tasks for peer feedback (giver is me, not to monitor, pending)
+      setTasks(myAssignments.filter(a =>
         a.status === 'PENDING' &&
-        !a.isToMonitor
+        !a.isToMonitor &&
+        !a.isFromMonitor // Peer feedbacks are student to student
       ));
 
-      const myIndividualReports = allReports.filter(r =>
-        String(r.targetId).toLowerCase() === String(me?.id).toLowerCase() &&
-        r.type === 'STUDENT'
-      );
-      setReports(myIndividualReports.filter(r => r.isApproved).sort((a, b) => b.createdAt - a.createdAt));
+      // Approved individual reports for the timeline
+      setReports(myReports.filter(r => r.isApproved).sort((a, b) => b.createdAt - a.createdAt));
 
-      const pendingIds = myIndividualReports
+      // Roundup IDs for pending reports (AI still synthesizing)
+      const pendingIds = myReports
         .filter(r => !r.isApproved)
         .map(r => {
           const rId = Array.isArray(r.roundId) ? r.roundId[0] : r.roundId;
@@ -87,14 +89,12 @@ const StudentPanel: React.FC = () => {
         });
       setPendingReportRoundIds(pendingIds);
 
-      const myEvals = allEvals.filter(e => String(e.studentId).toLowerCase() === String(me?.id).toLowerCase());
       const evalMap: Record<string, CourseEvaluation> = {};
       myEvals.forEach(e => evalMap[String(e.roundId).toLowerCase()] = e);
       setEvaluations(evalMap);
       setSubmittedCourseRoundIds(myEvals.map(e => String(e.roundId).toLowerCase()));
 
-      const monitorFeedbacks = allAssignments.filter(a =>
-        String(a.giverId).toLowerCase() === String(me?.id).toLowerCase() &&
+      const monitorFeedbacks = myAssignments.filter(a =>
         a.isToMonitor &&
         a.status === 'SUBMITTED'
       );

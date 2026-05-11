@@ -4,6 +4,31 @@ import { User, Group, FeedbackRound, FeedbackAssignment, SynthesizedReport, Role
 
 export class Store {
   private static currentUser: User | null = null;
+  private static cache = new Map<string, { data: any, timestamp: number }>();
+  private static readonly CACHE_TTL = 30000; // 30 seconds
+
+  private static getCacheKey(method: string, params: any) {
+    return `${method}:${JSON.stringify(params || {})}`;
+  }
+
+  private static getFromCache<T>(key: string): T | null {
+    const entry = this.cache.get(key);
+    if (!entry) return null;
+    const isExpired = Date.now() - entry.timestamp > this.CACHE_TTL;
+    if (isExpired) {
+      this.cache.delete(key);
+      return null;
+    }
+    return entry.data;
+  }
+
+  private static setCache(key: string, data: any) {
+    this.cache.set(key, { data, timestamp: Date.now() });
+  }
+
+  private static clearCache() {
+    this.cache.clear();
+  }
 
   static async init() {
     const { data: { session } } = await supabase.auth.getSession();
@@ -90,9 +115,24 @@ export class Store {
     return { success: true };
   }
 
-  static async getUsers(): Promise<User[]> {
-    const { data } = await supabase.from('profiles').select('*');
-    return (data || []).map(u => ({
+  static async getUsers(filters?: { groupId?: string | string[]; role?: Role }): Promise<User[]> {
+    const cacheKey = this.getCacheKey('getUsers', filters);
+    const cached = this.getFromCache<User[]>(cacheKey);
+    if (cached) return cached;
+
+    let query = supabase.from('profiles').select('*');
+    
+    if (filters?.groupId) {
+      if (Array.isArray(filters.groupId)) {
+        query = query.in('group_id', filters.groupId);
+      } else {
+        query = query.eq('group_id', filters.groupId);
+      }
+    }
+    if (filters?.role) query = query.eq('role', filters.role);
+
+    const { data } = await query;
+    const results = (data || []).map(u => ({
       id: u.id,
       name: u.name,
       email: u.email,
@@ -103,20 +143,51 @@ export class Store {
       resumeUrl: u.resume_url,
       photoUrl: u.photo_url
     } as any));
+
+    this.setCache(cacheKey, results);
+    return results;
   }
 
-  static async getGroups(): Promise<Group[]> {
-    const { data } = await supabase.from('groups').select('*');
-    return (data || []).map(g => ({
+  static async getGroups(filters?: { monitorId?: string }): Promise<Group[]> {
+    const cacheKey = this.getCacheKey('getGroups', filters);
+    const cached = this.getFromCache<Group[]>(cacheKey);
+    if (cached) return cached;
+
+    let query = supabase.from('groups').select('*');
+    
+    if (filters?.monitorId) {
+      query = query.contains('monitor_ids', [filters.monitorId]);
+    }
+
+    const { data } = await query;
+    const results = (data || []).map(g => ({
       id: g.id,
       name: g.name,
       monitorIds: g.monitor_ids || []
     }));
+
+    this.setCache(cacheKey, results);
+    return results;
   }
 
-  static async getRounds(): Promise<FeedbackRound[]> {
-    const { data } = await supabase.from('rounds').select('*').order('created_at', { ascending: false });
-    return (data || []).map(r => ({
+  static async getRounds(filters?: { groupId?: string | string[]; status?: RoundStatus }): Promise<FeedbackRound[]> {
+    const cacheKey = this.getCacheKey('getRounds', filters);
+    const cached = this.getFromCache<FeedbackRound[]>(cacheKey);
+    if (cached) return cached;
+
+    let query = supabase.from('rounds').select('*');
+    
+    if (filters?.groupId) {
+      if (Array.isArray(filters.groupId)) {
+        query = query.in('group_id', filters.groupId);
+      } else {
+        query = query.eq('group_id', filters.groupId);
+      }
+    }
+    if (filters?.status) query = query.eq('status', filters.status);
+    
+    const { data } = await query.order('created_at', { ascending: false });
+    const results = (data || []).map(r => ({
       id: r.id,
       name: r.name,
       deadline: r.deadline,
@@ -124,11 +195,42 @@ export class Store {
       status: r.status as RoundStatus,
       createdAt: new Date(r.created_at).getTime()
     }));
+
+    this.setCache(cacheKey, results);
+    return results;
   }
 
-  static async getAssignments(): Promise<FeedbackAssignment[]> {
-    const { data } = await supabase.from('assignments').select('*');
-    return (data || []).map(a => ({
+  static async getAssignments(filters?: { 
+    giverId?: string; 
+    receiverId?: string; 
+    roundId?: string | string[]; 
+    status?: string;
+    isToMonitor?: boolean;
+    isFromMonitor?: boolean;
+  }): Promise<FeedbackAssignment[]> {
+    const cacheKey = this.getCacheKey('getAssignments', filters);
+    const cached = this.getFromCache<FeedbackAssignment[]>(cacheKey);
+    if (cached) return cached;
+
+    let query = supabase.from('assignments').select('*');
+    
+    if (filters?.giverId) query = query.eq('giver_id', filters.giverId);
+    if (filters?.receiverId) query = query.eq('receiver_id', filters.receiverId);
+    
+    if (filters?.roundId) {
+      if (Array.isArray(filters.roundId)) {
+        query = query.in('round_id', filters.roundId);
+      } else {
+        query = query.eq('round_id', filters.roundId);
+      }
+    }
+    
+    if (filters?.status) query = query.eq('status', filters.status);
+    if (filters?.isToMonitor !== undefined) query = query.eq('is_to_monitor', filters.isToMonitor);
+    if (filters?.isFromMonitor !== undefined) query = query.eq('is_from_monitor', filters.isFromMonitor);
+
+    const { data } = await query;
+    const results = (data || []).map(a => ({
       id: a.id,
       roundId: a.round_id,
       giverId: a.giver_id,
@@ -138,11 +240,45 @@ export class Store {
       isFromMonitor: a.is_from_monitor,
       isToMonitor: a.is_to_monitor
     }));
+
+    this.setCache(cacheKey, results);
+    return results;
   }
 
-  static async getReports(): Promise<SynthesizedReport[]> {
-    const { data } = await supabase.from('reports').select('*').order('created_at', { ascending: false });
-    return (data || []).map(r => ({
+  static async getReports(filters?: { 
+    targetId?: string; 
+    roundId?: string | string[]; 
+    type?: ('STUDENT' | 'MONITOR' | 'COURSE' | 'TRAJECTORY') | ('STUDENT' | 'MONITOR' | 'COURSE' | 'TRAJECTORY')[];
+    isApproved?: boolean;
+  }): Promise<SynthesizedReport[]> {
+    const cacheKey = this.getCacheKey('getReports', filters);
+    const cached = this.getFromCache<SynthesizedReport[]>(cacheKey);
+    if (cached) return cached;
+
+    let query = supabase.from('reports').select('*');
+    
+    if (filters?.targetId) query = query.eq('target_id', filters.targetId);
+    
+    if (filters?.type) {
+      if (Array.isArray(filters.type)) {
+        query = query.in('type', filters.type);
+      } else {
+        query = query.eq('type', filters.type);
+      }
+    }
+    
+    if (filters?.isApproved !== undefined) query = query.eq('is_approved', filters.isApproved);
+    
+    if (filters?.roundId) {
+      if (Array.isArray(filters.roundId)) {
+        query = query.in('round_id', filters.roundId);
+      } else {
+        query = query.eq('round_id', filters.roundId);
+      }
+    }
+
+    const { data } = await query.order('created_at', { ascending: false });
+    const results = (data || []).map(r => ({
       id: r.id,
       targetId: r.target_id,
       roundId: r.round_id,
@@ -152,11 +288,29 @@ export class Store {
       type: r.type as any,
       isApproved: r.is_approved
     }));
+
+    this.setCache(cacheKey, results);
+    return results;
   }
 
-  static async getCourseEvaluations(): Promise<CourseEvaluation[]> {
-    const { data } = await supabase.from('course_evaluations').select('*');
-    return (data || []).map(e => ({
+  static async getCourseEvaluations(filters?: { roundId?: string | string[]; studentId?: string }): Promise<CourseEvaluation[]> {
+    const cacheKey = this.getCacheKey('getCourseEvaluations', filters);
+    const cached = this.getFromCache<CourseEvaluation[]>(cacheKey);
+    if (cached) return cached;
+
+    let query = supabase.from('course_evaluations').select('*');
+    
+    if (filters?.roundId) {
+      if (Array.isArray(filters.roundId)) {
+        query = query.in('round_id', filters.roundId);
+      } else {
+        query = query.eq('round_id', filters.roundId);
+      }
+    }
+    if (filters?.studentId) query = query.eq('student_id', filters.studentId);
+
+    const { data } = await query;
+    const results = (data || []).map(e => ({
       id: e.id,
       roundId: String(e.round_id),
       studentId: String(e.student_id),
@@ -164,9 +318,13 @@ export class Store {
       q2: { score: e.q2_score, comment: e.q2_comment },
       q3: { score: e.q3_score || 0, comment: e.q3_comment }
     }));
+
+    this.setCache(cacheKey, results);
+    return results;
   }
 
   static async updateUser(u: Partial<User>) {
+    this.clearCache();
     await supabase.from('profiles').update({
       name: u.name,
       bio: u.bio,
@@ -201,11 +359,13 @@ export class Store {
   }
 
   static async updateUserRole(userId: string, role: Role) {
+    this.clearCache();
     const { error } = await supabase.from('profiles').update({ role }).eq('id', userId);
     if (error) throw error;
   }
 
   static async createGroup(name: string, monitorIds: string[] = []) {
+    this.clearCache();
     const { data, error } = await supabase.from('groups').insert({ name, monitor_ids: monitorIds }).select().single();
     if (error) throw error;
     return data;
@@ -213,6 +373,7 @@ export class Store {
 
   
   static async deleteGroup(groupId: string) {
+    this.clearCache();
     // 1. Desvincular alunos da turma (set group_id to null)
     const { error: updateError } = await supabase
       .from('profiles')
@@ -231,14 +392,17 @@ export class Store {
   }
 
   static async updateGroupMonitors(groupId: string, monitorIds: string[]) {
+    this.clearCache();
     await supabase.from('groups').update({ monitor_ids: monitorIds }).eq('id', groupId);
   }
 
   static async assignToGroup(userId: string, groupId: string) {
+    this.clearCache();
     await supabase.from('profiles').update({ group_id: groupId }).eq('id', userId);
   }
 
   static async startRound(groupId: string, name: string, deadline: number) {
+    this.clearCache();
     // 1. Criar a rodada
     const { data: round, error } = await supabase.from('rounds').insert({ 
       group_id: groupId, 
@@ -337,14 +501,17 @@ export class Store {
   }
 
   static async deleteRound(roundId: string) {
+    this.clearCache();
     await supabase.from('rounds').delete().eq('id', roundId);
   }
 
   static async submitFeedback(assignmentId: string, content: string) {
+    this.clearCache();
     await supabase.from('assignments').update({ content, status: 'SUBMITTED' }).eq('id', assignmentId);
   }
 
   static async submitCourseEvaluation(ev: CourseEvaluation) {
+    this.clearCache();
     await supabase.from('course_evaluations').upsert({
       round_id: ev.roundId,
       student_id: ev.studentId,
@@ -358,12 +525,14 @@ export class Store {
   }
 
   static async createStudentToMonitorFeedback(roundId: string, studentId: string, monitorId: string, content: string) {
+    this.clearCache();
     await supabase.from('assignments').insert({
       round_id: roundId, giver_id: studentId, receiver_id: monitorId, content, status: 'SUBMITTED', is_to_monitor: true, is_from_monitor: false
     });
   }
 
   static async addReport(report: Partial<SynthesizedReport>): Promise<SynthesizedReport> {
+    this.clearCache();
     const { data, error } = await supabase.from('reports').insert({
       target_id: report.targetId,
       round_id: report.roundId,
@@ -386,6 +555,7 @@ export class Store {
   }
 
   static async updateReport(id: string, updates: Partial<SynthesizedReport>) {
+    this.clearCache();
     await supabase.from('reports').update({ content: updates.content, evolution: updates.evolution }).eq('id', id);
   }
 
@@ -394,6 +564,7 @@ export class Store {
    * Se não houver erro mas o banco não retornar a linha afetada, lança exceção (provável RLS).
    */
   static async approveReport(id: string) {
+    this.clearCache();
     const { data, error } = await supabase
       .from('reports')
       .update({ is_approved: true })
@@ -407,10 +578,12 @@ export class Store {
   }
 
   static async updateRoundStatus(roundId: string, status: RoundStatus) {
+    this.clearCache();
     await supabase.from('rounds').update({ status }).eq('id', roundId);
   }
 
   static async completeRound(roundId: string) {
+    this.clearCache();
     await this.updateRoundStatus(roundId, RoundStatus.COMPLETED);
   }
 }

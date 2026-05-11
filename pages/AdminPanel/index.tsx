@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Store } from '../../services/store';
-import { Role, User, Group, FeedbackRound, CourseEvaluation, SynthesizedReport } from '../../types';
+import { Role, User, Group, FeedbackRound, CourseEvaluation, SynthesizedReport, RoundStatus } from '../../types';
 import {
   Users,
   Plus,
@@ -16,9 +16,11 @@ import {
   X,
   ExternalLink,
   FileText,
-  Trash2
+  Trash2,
+  ShieldCheck,
+  Zap
 } from 'lucide-react';
-import { synthesizeTrajectory, synthesizeCourseAnalysis } from '../../services/gemini';
+import { synthesizeTrajectory, synthesizeCourseAnalysis, synthesizeFeedback, synthesizeMonitorFeedback } from '../../services/gemini';
 import { useNavigate, Link } from 'react-router-dom';
 import { DeleteGroupModal } from '../../components/modals/DeleteGroupModal';
 import './styles.css';
@@ -42,17 +44,23 @@ const AdminPanel: React.FC = () => {
   const [actionError, setActionError] = useState<string | null>(null);
   const [viewingGroupStudents, setViewingGroupStudents] = useState<Group | null>(null);
 
+  // Recovery State
+  const [maintenanceRoundId, setMaintenanceRoundId] = useState<string>('');
+  const [isRecovering, setIsRecovering] = useState<string | null>(null);
+
   useEffect(() => {
     refresh();
   }, []);
 
   const refresh = async () => {
     try {
-      const fetchedUsers = await Store.getUsers();
-      const fetchedGroups = await Store.getGroups();
-      const fetchedRounds = await Store.getRounds();
-      const fetchedEvals = await Store.getCourseEvaluations();
-      const fetchedReports = await Store.getReports();
+      const [fetchedUsers, fetchedGroups, fetchedRounds, fetchedEvals, fetchedReports] = await Promise.all([
+        Store.getUsers(),
+        Store.getGroups(),
+        Store.getRounds(),
+        Store.getCourseEvaluations(),
+        Store.getReports() // Fetching all types for recovery check
+      ]);
 
       setUsers(fetchedUsers);
       setGroups(fetchedGroups);
@@ -168,10 +176,15 @@ const AdminPanel: React.FC = () => {
     setIsGenerating(student.id);
     setActionError(null);
     try {
-      const historicalReports = reports
+      const studentReports = await Store.getReports({ 
+        targetId: student.id, 
+        type: 'STUDENT',
+        isApproved: true
+      });
+
+      const historicalReports = studentReports
         .filter(
           (r) =>
-            r.targetId === student.id &&
             selectedRoundIds.includes(Array.isArray(r.roundId) ? r.roundId[0] : r.roundId),
         )
         .map((r) => r.content);
@@ -201,11 +214,98 @@ const AdminPanel: React.FC = () => {
     }
   };
 
+  const handleManualRecover = async (targetId: string, roundId: string) => {
+    const user = users.find(u => u.id === targetId);
+    if (!user) return;
+
+    setIsRecovering(targetId);
+    setActionError(null);
+
+    console.log(`Iniciando recuperação manual para ${user.name} (ID: ${targetId}, Sprint: ${roundId})`);
+
+    try {
+      if (user.role === Role.STUDENT) {
+        // Fetch assignments for this specific round and student
+        const allAssignments = await Store.getAssignments({ roundId: [roundId] });
+        const relevantFeedbacks = allAssignments
+          .filter(a => a.receiverId === targetId && !a.isToMonitor)
+          .map(a => a.content)
+          .filter(c => !!c && c.length > 2);
+
+        console.log(`Feedbacks encontrados para aluno: ${relevantFeedbacks.length}`);
+
+        if (relevantFeedbacks.length === 0) {
+          throw new Error('Nenhum feedback encontrado para este aluno nesta sprint. Verifique se os avaliadores já enviaram.');
+        }
+
+        // Get previous report for evolution
+        const prevReportsList = reports
+          .filter(r => r.targetId === targetId && r.type === 'STUDENT')
+          .sort((a, b) => b.createdAt - a.createdAt);
+        const prevText = prevReportsList.length > 0 ? prevReportsList[0].content : '';
+
+        const result = await synthesizeFeedback(user.name, relevantFeedbacks, prevText);
+
+        const savedReport = await Store.addReport({
+          targetId: user.id,
+          roundId,
+          content: result.summary,
+          evolution: result.evolution_analysis,
+          type: 'STUDENT',
+          isApproved: true // Auto-approved as requested
+        });
+
+        setReports(prev => [savedReport, ...prev]);
+        alert(`Feedback gerado e aprovado com sucesso para ${user.name}`);
+      } else if (user.role === Role.MONITOR) {
+        const allAssignments = await Store.getAssignments({ roundId: [roundId] });
+        const relevantFeedbacks = allAssignments
+          .filter(a => a.receiverId === targetId && a.isToMonitor)
+          .map(a => a.content)
+          .filter(c => !!c && c.length > 2);
+
+        console.log(`Feedbacks encontrados para monitor: ${relevantFeedbacks.length}`);
+
+        if (relevantFeedbacks.length === 0) {
+          throw new Error('Nenhum feedback encontrado para este monitor nesta sprint.');
+        }
+
+        const result = await synthesizeMonitorFeedback(user.name, relevantFeedbacks);
+        const savedReport = await Store.addReport({
+          targetId: user.id,
+          roundId: roundId,
+          content: result.summary,
+          type: 'MONITOR',
+          isApproved: true
+        });
+
+        setReports(prev => [savedReport, ...prev]);
+        alert(`Feedback gerado com sucesso para ${user.name}`);
+      }
+    } catch (err: any) {
+      console.error('Erro na recuperação:', err);
+      setActionError('ERRO NA RECUPERAÇÃO: ' + err.message);
+      // Fallback alert for immediate visibility
+      alert('Erro ao gerar feedback: ' + err.message);
+    } finally {
+      setIsRecovering(null);
+    }
+  };
+
   const monitors = users.filter((u) => u.role === Role.MONITOR);
   const studentsInSelectedGroup = users.filter(
     (u) => u.groupId === selectedGroupId && u.role === Role.STUDENT,
   );
   const roundsInSelectedGroup = rounds.filter((r) => r.groupId === selectedGroupId);
+
+  // Recovery data
+  const maintenanceRound = rounds.find(r => r.id === maintenanceRoundId);
+  const maintenanceGroup = groups.find(g => g.id === maintenanceRound?.groupId);
+  const usersInMaintenance = users.filter(u => 
+    u.groupId === maintenanceGroup?.id || 
+    (u.role === Role.MONITOR && maintenanceGroup?.monitorIds.includes(u.id))
+  );
+  const closedRounds = rounds.filter(r => r.status === RoundStatus.COMPLETED);
 
   const groupBeingDeleted = groups.find((g) => g.id === deletingGroupId);
 
@@ -593,6 +693,99 @@ const AdminPanel: React.FC = () => {
                 );
               })}
             </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="admin-card admin-card--recovery">
+        <div className="admin-recovery__header">
+          <div className="admin-recovery__icon-wrapper">
+            <ShieldCheck className="admin-recovery__icon" />
+          </div>
+          <div>
+            <h2 className="admin-recovery__title">Manutenção de Feedbacks</h2>
+            <p className="admin-recovery__subtitle">
+              Recupere feedbacks que não foram gerados automaticamente após o fechamento da sprint.
+            </p>
+          </div>
+        </div>
+
+        <div className="admin-recovery__layout">
+          <div className="admin-recovery__sidebar">
+            <label className="admin-recovery__label">Selecione a Sprint Fechada</label>
+            <select 
+              className="admin-recovery__select"
+              value={maintenanceRoundId}
+              onChange={(e) => setMaintenanceRoundId(e.target.value)}
+            >
+              <option value="">Escolher Sprint...</option>
+              {closedRounds.map(r => (
+                <option key={r.id} value={r.id}>
+                  {groups.find(g => g.id === r.groupId)?.name} - {r.name}
+                </option>
+              ))}
+            </select>
+
+            {maintenanceRound && (
+              <div className="admin-recovery__info">
+                <div className="admin-recovery__info-item">
+                  <strong>Turma:</strong> {maintenanceGroup?.name}
+                </div>
+                <div className="admin-recovery__info-item">
+                  <strong>Status:</strong> Fechada
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div className="admin-recovery__main">
+            {maintenanceRoundId ? (
+              <div className="admin-recovery__user-list">
+                {usersInMaintenance.map(user => {
+                  const existingReport = reports.find(r => {
+                    const rId = Array.isArray(r.roundId) ? r.roundId[0] : r.roundId;
+                    return rId === maintenanceRoundId && r.targetId === user.id;
+                  });
+
+                  return (
+                    <div key={user.id} className="admin-recovery-user">
+                      <div className="admin-recovery-user__info">
+                        <span className="admin-recovery-user__name">{user.name}</span>
+                        <span className={`admin-recovery-user__role-badge admin-recovery-user__role-badge--${user.role.toLowerCase()}`}>
+                          {user.role}
+                        </span>
+                      </div>
+
+                      <div className="admin-recovery-user__actions">
+                        {existingReport ? (
+                          <div className="admin-recovery-status admin-recovery-status--ok">
+                            <CheckSquare className="admin-recovery-status__icon" />
+                            Relatório OK
+                          </div>
+                        ) : (
+                          <button
+                            onClick={() => handleManualRecover(user.id, maintenanceRoundId)}
+                            disabled={!!isRecovering}
+                            className="admin-recovery__action-btn"
+                          >
+                            {isRecovering === user.id ? (
+                              <Loader2 className="admin-recovery__spinner" />
+                            ) : (
+                              <Zap className="admin-recovery__zap" />
+                            )}
+                            Gerar Manualmente
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="admin-recovery__placeholder">
+                Selecione uma sprint fechada para verificar pendências.
+              </div>
+            )}
           </div>
         </div>
       </section>

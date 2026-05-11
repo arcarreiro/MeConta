@@ -795,9 +795,252 @@
   background: #7c3aed;
 }
 
-.admin-diagnostic-card__button--secondary {
+/* --- Admin Recovery Section --- */
+.admin-card--recovery {
+  margin-top: 2rem;
+  overflow: hidden;
+}
+
+.admin-recovery__header {
+  padding: 2.5rem;
+  border-bottom: 1px solid #e5e7eb;
+  background: #f8fafc;
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+}
+
+.admin-recovery__icon-wrapper {
+  width: 64px;
+  height: 64px;
+  border-radius: 1.5rem;
+  background: #6366f1;
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 18px 40px rgba(99, 102, 241, 0.35);
+}
+
+.admin-recovery__icon {
+  width: 32px;
+  height: 32px;
+}
+
+.admin-recovery__title {
+  font-size: 1.3rem;
+  font-weight: 900;
+  color: #0f172a;
+}
+
+.admin-recovery__subtitle {
+  color: #64748b;
+  font-weight: 500;
+}
+
+.admin-recovery__layout {
+  display: grid;
+  grid-template-columns: 1fr;
+  min-height: 400px;
+}
+
+@media (min-width: 1024px) {
+  .admin-recovery__layout {
+    grid-template-columns: 320px 1fr;
+  }
+}
+
+.admin-recovery__sidebar {
+  padding: 2.5rem;
+  background: #fcfdfe;
+  border-right: 1px solid #e5e7eb;
+}
+
+.admin-recovery__label {
+  display: block;
+  font-size: 0.625rem;
+  text-transform: uppercase;
+  letter-spacing: 0.2em;
+  font-weight: 800;
+  color: #94a3b8;
+  margin-bottom: 0.75rem;
+}
+
+.admin-recovery__select {
+  width: 100%;
+  padding: 0.9rem 1.25rem;
+  border-radius: 1.25rem;
+  border: 2px solid #e2e8f0;
+  background: #ffffff;
+  font-weight: 700;
+  color: #0f172a;
+  outline: none;
+  cursor: pointer;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 1rem center;
+  background-size: 1rem;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.admin-recovery__select:focus {
+  border-color: #6366f1;
+  box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.1);
+}
+
+.admin-recovery__info {
+  margin-top: 2rem;
+  padding: 1.5rem;
+  background: #ffffff;
+  border-radius: 1.5rem;
+  border: 1px solid #e5e7eb;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.admin-recovery__info-item {
+  font-size: 0.875rem;
+  color: #475569;
+}
+
+.admin-recovery__info-item strong {
+  color: #0f172a;
+}
+
+.admin-recovery__main {
+  padding: 2.5rem;
+  background: #ffffff;
+  display: flex;
+  flex-direction: column;
+}
+
+.admin-recovery__placeholder {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  color: #94a3b8;
+  font-weight: 600;
+  font-style: italic;
+  padding: 4rem;
+}
+
+.admin-recovery__user-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.admin-recovery-user {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1.25rem 1.75rem;
+  background: #f8fafc;
+  border-radius: 1.5rem;
+  border: 1px solid transparent;
+  transition: transform 0.1s ease, border-color 0.15s ease, background 0.15s ease;
+}
+
+.admin-recovery-user:hover {
+  background: #ffffff;
+  border-color: #e2e8f0;
+  transform: translateX(4px);
+}
+
+.admin-recovery-user__info {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.admin-recovery-user__name {
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.admin-recovery-user__role-badge {
+  font-size: 0.625rem;
+  font-weight: 800;
+  padding: 0.2rem 0.6rem;
+  border-radius: 999px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.admin-recovery-user__role-badge--student {
+  background: #dbeafe;
+  color: #1e40af;
+}
+
+.admin-recovery-user__role-badge--monitor {
   background: #fef3c7;
   color: #92400e;
+}
+
+.admin-recovery-user__actions {
+  display: flex;
+  align-items: center;
+}
+
+.admin-recovery-status {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.admin-recovery-status--ok {
+  color: #10b981;
+}
+
+.admin-recovery-status__icon {
+  width: 18px;
+  height: 18px;
+}
+
+.admin-recovery__action-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.6rem 1.25rem;
+  border-radius: 1rem;
+  background: #1e293b;
+  color: #ffffff;
+  font-size: 0.75rem;
+  font-weight: 700;
+  border: none;
+  cursor: pointer;
+  transition: background 0.15s ease, transform 0.1s ease, box-shadow 0.15s ease;
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.1);
+}
+
+.admin-recovery__action-btn:hover {
+  background: #6366f1;
+  transform: translateY(-1px);
+  box-shadow: 0 8px 20px rgba(99, 102, 241, 0.3);
+}
+
+.admin-recovery__action-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+.admin-recovery__spinner {
+  width: 14px;
+  height: 14px;
+  animation: admin-spinner 0.8s linear infinite;
+}
+
+.admin-recovery__zap {
+  width: 14px;
+  height: 14px;
 }
 
 .admin-diagnostic-card__button--secondary:hover {

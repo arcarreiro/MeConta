@@ -8,7 +8,7 @@ export const synthesizeFeedback = async (
   monitorInstructions?: string,
   currentReportText?: string
 ) => {
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
   const modelName = 'gemini-3-flash-preview';
   
   let prompt = `
@@ -46,8 +46,9 @@ export const synthesizeFeedback = async (
       }
     });
     return JSON.parse(response.text || '{}');
-  } catch (error) {
-    return { summary: "Erro na síntese.", evolution_analysis: "Indisponível." };
+  } catch (error: any) {
+    console.error('Gemini Error:', error);
+    throw error;
   }
 };
 
@@ -55,7 +56,7 @@ export const synthesizeCourseAnalysis = async (
   roundName: string,
   allComments: string[]
 ) => {
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
   const modelName = 'gemini-3-flash-preview';
   
   const prompt = `
@@ -91,14 +92,14 @@ export const synthesizeTrajectory = async (
   studentName: string,
   historicalReports: string[]
 ) => {
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
   const modelName = 'gemini-3-pro-preview';
   
   const prompt = `
     Aja como um Mentor de Carreira Sênior.
     Analise a trajetória do aluno(a) ${studentName} baseada nestes relatórios de sprints passadas:
     ${historicalReports.map((r, i) => `Sprint ${i+1}: ${r}`).join('\n\n')}
-    Crie uma narrativa de crescimento, patrones de comportamento, vitórias e próximos passos.
+    Crie uma narrativa de crescimento, padrões de comportamento, vitórias e próximos passos.
     Retorne um JSON com o campo: "trajectory_summary".
   `;
 
@@ -118,8 +119,9 @@ export const synthesizeTrajectory = async (
       }
     });
     return JSON.parse(response.text || '{}');
-  } catch (error) {
-    return { trajectory_summary: "Não foi possível consolidar a trajetória." };
+  } catch (error: any) {
+    console.error('Gemini Error:', error);
+    throw error;
   }
 };
 
@@ -127,7 +129,7 @@ export const synthesizeMonitorFeedback = async (
   monitorName: string,
   feedbacks: string[]
 ) => {
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
   const modelName = 'gemini-3-flash-preview';
   const prompt = `Consolide feedbacks para o monitor ${monitorName}: ${feedbacks.join(' | ')}. Retorne JSON: "summary".`;
 
@@ -145,7 +147,8 @@ export const synthesizeMonitorFeedback = async (
       }
     });
     return JSON.parse(response.text || '{}');
-  } catch (error) {
-    return { summary: "Erro." };
+  } catch (error: any) {
+    console.error('Gemini Error:', error);
+    throw error;
   }
 };

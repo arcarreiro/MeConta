@@ -124,6 +124,7 @@ export class Store {
     
     if (filters?.groupId) {
       if (Array.isArray(filters.groupId)) {
+        if (filters.groupId.length === 0) return [];
         query = query.in('group_id', filters.groupId);
       } else {
         query = query.eq('group_id', filters.groupId);
@@ -179,6 +180,7 @@ export class Store {
     
     if (filters?.groupId) {
       if (Array.isArray(filters.groupId)) {
+        if (filters.groupId.length === 0) return [];
         query = query.in('group_id', filters.groupId);
       } else {
         query = query.eq('group_id', filters.groupId);
@@ -219,6 +221,7 @@ export class Store {
     
     if (filters?.roundId) {
       if (Array.isArray(filters.roundId)) {
+        if (filters.roundId.length === 0) return [];
         query = query.in('round_id', filters.roundId);
       } else {
         query = query.eq('round_id', filters.roundId);
@@ -261,6 +264,7 @@ export class Store {
     
     if (filters?.type) {
       if (Array.isArray(filters.type)) {
+        if (filters.type.length === 0) return [];
         query = query.in('type', filters.type);
       } else {
         query = query.eq('type', filters.type);
@@ -271,6 +275,7 @@ export class Store {
     
     if (filters?.roundId) {
       if (Array.isArray(filters.roundId)) {
+        if (filters.roundId.length === 0) return [];
         query = query.in('round_id', filters.roundId);
       } else {
         query = query.eq('round_id', filters.roundId);
@@ -302,6 +307,7 @@ export class Store {
     
     if (filters?.roundId) {
       if (Array.isArray(filters.roundId)) {
+        if (filters.roundId.length === 0) return [];
         query = query.in('round_id', filters.roundId);
       } else {
         query = query.eq('round_id', filters.roundId);

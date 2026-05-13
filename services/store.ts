@@ -38,7 +38,7 @@ export class Store {
         .select('*')
         .eq('id', session.user.id)
         .single();
-      
+
       if (profile) {
         this.currentUser = {
           id: profile.id,
@@ -121,7 +121,7 @@ export class Store {
     if (cached) return cached;
 
     let query = supabase.from('profiles').select('*');
-    
+
     if (filters?.groupId) {
       if (Array.isArray(filters.groupId)) {
         if (filters.groupId.length === 0) return [];
@@ -155,7 +155,7 @@ export class Store {
     if (cached) return cached;
 
     let query = supabase.from('groups').select('*');
-    
+
     if (filters?.monitorId) {
       query = query.contains('monitor_ids', [filters.monitorId]);
     }
@@ -177,7 +177,7 @@ export class Store {
     if (cached) return cached;
 
     let query = supabase.from('rounds').select('*');
-    
+
     if (filters?.groupId) {
       if (Array.isArray(filters.groupId)) {
         if (filters.groupId.length === 0) return [];
@@ -187,7 +187,7 @@ export class Store {
       }
     }
     if (filters?.status) query = query.eq('status', filters.status);
-    
+
     const { data } = await query.order('created_at', { ascending: false });
     const results = (data || []).map(r => ({
       id: r.id,
@@ -202,10 +202,10 @@ export class Store {
     return results;
   }
 
-  static async getAssignments(filters?: { 
-    giverId?: string; 
-    receiverId?: string; 
-    roundId?: string | string[]; 
+  static async getAssignments(filters?: {
+    giverId?: string;
+    receiverId?: string;
+    roundId?: string | string[];
     status?: string;
     isToMonitor?: boolean;
     isFromMonitor?: boolean;
@@ -215,10 +215,10 @@ export class Store {
     if (cached) return cached;
 
     let query = supabase.from('assignments').select('*');
-    
+
     if (filters?.giverId) query = query.eq('giver_id', filters.giverId);
     if (filters?.receiverId) query = query.eq('receiver_id', filters.receiverId);
-    
+
     if (filters?.roundId) {
       if (Array.isArray(filters.roundId)) {
         if (filters.roundId.length === 0) return [];
@@ -227,7 +227,7 @@ export class Store {
         query = query.eq('round_id', filters.roundId);
       }
     }
-    
+
     if (filters?.status) query = query.eq('status', filters.status);
     if (filters?.isToMonitor !== undefined) query = query.eq('is_to_monitor', filters.isToMonitor);
     if (filters?.isFromMonitor !== undefined) query = query.eq('is_from_monitor', filters.isFromMonitor);
@@ -248,9 +248,9 @@ export class Store {
     return results;
   }
 
-  static async getReports(filters?: { 
-    targetId?: string; 
-    roundId?: string | string[]; 
+  static async getReports(filters?: {
+    targetId?: string;
+    roundId?: string | string[];
     type?: ('STUDENT' | 'MONITOR' | 'COURSE' | 'TRAJECTORY') | ('STUDENT' | 'MONITOR' | 'COURSE' | 'TRAJECTORY')[];
     isApproved?: boolean;
   }): Promise<SynthesizedReport[]> {
@@ -259,9 +259,9 @@ export class Store {
     if (cached) return cached;
 
     let query = supabase.from('reports').select('*');
-    
+
     if (filters?.targetId) query = query.eq('target_id', filters.targetId);
-    
+
     if (filters?.type) {
       if (Array.isArray(filters.type)) {
         if (filters.type.length === 0) return [];
@@ -270,9 +270,9 @@ export class Store {
         query = query.eq('type', filters.type);
       }
     }
-    
+
     if (filters?.isApproved !== undefined) query = query.eq('is_approved', filters.isApproved);
-    
+
     if (filters?.roundId) {
       if (Array.isArray(filters.roundId)) {
         if (filters.roundId.length === 0) return [];
@@ -304,7 +304,7 @@ export class Store {
     if (cached) return cached;
 
     let query = supabase.from('course_evaluations').select('*');
-    
+
     if (filters?.roundId) {
       if (Array.isArray(filters.roundId)) {
         if (filters.roundId.length === 0) return [];
@@ -337,7 +337,7 @@ export class Store {
       curricular_info: u.curricularInfo,
       resume_url: u.resumeUrl,
       photo_url: u.photoUrl,
-      group_id: u.groupId
+      group_id: u.groupId === "" ? null : u.groupId
     }).eq('id', u.id);
   }
 
@@ -377,7 +377,7 @@ export class Store {
     return data;
   }
 
-  
+
   static async deleteGroup(groupId: string) {
     this.clearCache();
     // 1. Desvincular alunos da turma (set group_id to null)
@@ -385,7 +385,7 @@ export class Store {
       .from('profiles')
       .update({ group_id: null })
       .eq('group_id', groupId);
-    
+
     if (updateError) throw updateError;
 
     // 2. Excluir a turma
@@ -393,7 +393,7 @@ export class Store {
       .from('groups')
       .delete()
       .eq('id', groupId);
-    
+
     if (deleteError) throw deleteError;
   }
 
@@ -402,26 +402,27 @@ export class Store {
     await supabase.from('groups').update({ monitor_ids: monitorIds }).eq('id', groupId);
   }
 
-  static async assignToGroup(userId: string, groupId: string) {
+  static async assignToGroup(userId: string, groupId: string | null) {
     this.clearCache();
-    await supabase.from('profiles').update({ group_id: groupId }).eq('id', userId);
+    const gid = groupId === "" ? null : groupId;
+    await supabase.from('profiles').update({ group_id: gid }).eq('id', userId);
   }
 
   static async startRound(groupId: string, name: string, deadline: number) {
     this.clearCache();
     // 1. Criar a rodada
-    const { data: round, error } = await supabase.from('rounds').insert({ 
-      group_id: groupId, 
-      name, 
-      deadline, 
-      status: RoundStatus.ACTIVE 
+    const { data: round, error } = await supabase.from('rounds').insert({
+      group_id: groupId,
+      name,
+      deadline,
+      status: RoundStatus.ACTIVE
     }).select().single();
     if (error) throw error;
 
     // 2. Obter alunos e monitores da turma
     const { data: students } = await supabase.from('profiles').select('id').eq('group_id', groupId).eq('role', Role.STUDENT);
     const { data: group } = await supabase.from('groups').select('monitor_ids').eq('id', groupId).single();
-    
+
     if (!students || students.length === 0) return round;
 
     const studentIds = students.map(s => s.id);
@@ -432,20 +433,20 @@ export class Store {
     // Cada monitor avalia cada aluno (Monitor -> Student)
     students.forEach((student: any) => {
       monitorIds.forEach((mId: string) => {
-        assignmentsToInsert.push({ 
-          round_id: round.id, 
-          giver_id: mId, 
-          receiver_id: student.id, 
-          is_from_monitor: true, 
-          is_to_monitor: false, 
-          status: 'PENDING' 
+        assignmentsToInsert.push({
+          round_id: round.id,
+          giver_id: mId,
+          receiver_id: student.id,
+          is_from_monitor: true,
+          is_to_monitor: false,
+          status: 'PENDING'
         });
       });
     });
 
     // --- PARTE B: ALUNOS PARA ALUNOS (BALANÇADO + HISTÓRICO) ---
     // Cada aluno dá 2 e RECEBE exatamente 2 (Student -> Student)
-    
+
     // Buscar histórico de pares para tentar não repetir
     const { data: pastAssignments } = await supabase
       .from('assignments')
@@ -454,12 +455,12 @@ export class Store {
       .in('receiver_id', studentIds)
       .eq('is_from_monitor', false)
       .eq('is_to_monitor', false);
-    
+
     const pastPairsSet = new Set(pastAssignments?.map(a => `${a.giver_id}-${a.receiver_id}`));
 
     const n = students.length;
     const numFeedbacksPerStudent = Math.min(2, n - 1);
-    
+
     let bestPeerAssignments: any[] = [];
     let minHistoryScore = Infinity;
 
@@ -474,7 +475,7 @@ export class Store {
         for (let j = 1; j <= numFeedbacksPerStudent; j++) {
           const receiver = shuffled[(i + j) % n];
           const pairKey = `${giver.id}-${receiver.id}`;
-          
+
           if (pastPairsSet.has(pairKey)) {
             currentHistoryScore++;
           }
@@ -576,7 +577,7 @@ export class Store {
       .update({ is_approved: true })
       .eq('id', id)
       .select(); // Força o retorno dos dados afetados
-    
+
     if (error) throw error;
     if (!data || data.length === 0) {
       throw new Error("Falha na atualização: Verifique se você tem permissão de escrita (RLS) nesta tabela.");

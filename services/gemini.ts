@@ -8,7 +8,7 @@ export const synthesizeFeedback = async (
   monitorInstructions?: string,
   currentReportText?: string
 ) => {
-  const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   const modelName = 'gemini-3-flash-preview';
   
   let prompt = `
@@ -56,7 +56,7 @@ export const synthesizeCourseAnalysis = async (
   roundName: string,
   allComments: string[]
 ) => {
-  const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   const modelName = 'gemini-3-flash-preview';
   
   const prompt = `
@@ -92,7 +92,7 @@ export const synthesizeTrajectory = async (
   studentName: string,
   historicalReports: string[]
 ) => {
-  const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   const modelName = 'gemini-3-pro-preview';
   
   const prompt = `
@@ -138,7 +138,7 @@ export const synthesizeMonitorFeedback = async (
   monitorName: string,
   feedbacks: string[]
 ) => {
-  const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   const modelName = 'gemini-3-flash-preview';
   const prompt = `Consolide feedbacks para o monitor ${monitorName}: ${feedbacks.join(' | ')}. Retorne JSON: "summary".`;
 

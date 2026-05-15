@@ -321,8 +321,15 @@ const MonitorPanel: React.FC = () => {
   };
 
   const roundBeingDeleted = activeRounds.find(r => r.id === deletingRoundId);
-  const myPendingTasks = assignments.filter(a => a.giverId === me?.id && a.status === 'PENDING' && a.isFromMonitor);
-  const reportsForApproval = reports.filter(r => r.type === 'STUDENT' && !r.isApproved);
+  const myPendingTasks = assignments.filter(a => {
+    const round = activeRounds.find(r => r.id === a.roundId);
+    return a.giverId === me?.id && a.status === 'PENDING' && a.isFromMonitor && round?.status === RoundStatus.ACTIVE;
+  });
+  const reportsForApproval = reports.filter(r => {
+    const rId = Array.isArray(r.roundId) ? r.roundId[0] : r.roundId;
+    const round = activeRounds.find(rd => rd.id === rId);
+    return r.type === 'STUDENT' && !r.isApproved && round?.status === RoundStatus.UNDER_REVIEW;
+  });
   const hasActiveCollectingRound = activeRounds.some(r => r.status === RoundStatus.ACTIVE);
   const showTasksFirst = hasActiveCollectingRound && myPendingTasks.length > 0;
 

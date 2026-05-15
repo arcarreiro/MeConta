@@ -71,16 +71,16 @@ const MonitorPanel: React.FC = () => {
 
       // 2. Fetch basic data in parallel
       const [allUsers, allRounds, myOwnReports] = await Promise.all([
-        Store.getUsers({ groupId: groupIds }), 
+        Store.getUsers({ groupId: groupIds }),
         Store.getRounds({ groupId: groupIds }),
         Store.getReports({ targetId: me?.id, type: 'MONITOR' })
       ]);
 
       const roundIds = allRounds.map(r => r.id);
-      
+
       // 3. Fetch dependent data in parallel
       const [studentReportsForApproval, filteredAssignments, filteredEvals] = await Promise.all([
-        Store.getReports({ roundId: roundIds, type: 'STUDENT' }),
+        Store.getReports({ type: 'STUDENT' }),
         Store.getAssignments({ roundId: roundIds }),
         Store.getCourseEvaluations({ roundId: roundIds })
       ]);
@@ -91,7 +91,7 @@ const MonitorPanel: React.FC = () => {
       // Safety Logic: Auto-complete rounds in UNDER_REVIEW with no pending reports
       for (const round of allRounds) {
         if (round.status === RoundStatus.COMPLETED) continue;
-        
+
         const roundId = round.id;
         const studentReports = studentReportsForApproval.filter(rep => {
           const repRoundId = Array.isArray(rep.roundId) ? rep.roundId[0] : rep.roundId;
@@ -123,6 +123,8 @@ const MonitorPanel: React.FC = () => {
       setLoading(false);
     }
   };
+
+
 
   const handleStartRound = async (groupId: string) => {
     if (!newRoundName || !newRoundDeadline) return showToast('Preencha os campos.', 'error');
@@ -247,11 +249,6 @@ const MonitorPanel: React.FC = () => {
           !r.isApproved;
       });
 
-      console.log("🧪 DEBUG PENDINGS", {
-        roundId,
-        totalReports: updatedReports.length,
-        pendingsOfRound
-      });
 
       if (pendingsOfRound.length === 0) {
         await Store.completeRound(roundId);
@@ -323,15 +320,34 @@ const MonitorPanel: React.FC = () => {
   const roundBeingDeleted = activeRounds.find(r => r.id === deletingRoundId);
   const myPendingTasks = assignments.filter(a => {
     const round = activeRounds.find(r => r.id === a.roundId);
-    return a.giverId === me?.id && a.status === 'PENDING' && a.isFromMonitor && round?.status === RoundStatus.ACTIVE;
+    return a.giverId === me?.id && a.status === 'PENDING' && a.isFromMonitor &&
+      round?.status === RoundStatus.ACTIVE;
   });
   const reportsForApproval = reports.filter(r => {
-    const rId = Array.isArray(r.roundId) ? r.roundId[0] : r.roundId;
-    const round = activeRounds.find(rd => rd.id === rId);
-    return r.type === 'STUDENT' && !r.isApproved && round?.status === RoundStatus.UNDER_REVIEW;
+    const rId = Array.isArray(r.roundId)
+      ? r.roundId[0]
+      : r.roundId;
+
+    const round = activeRounds.find(
+      rd =>
+        String(rd.id).toLowerCase().trim() ===
+        String(rId).toLowerCase().trim()
+    );
+
+    return (
+      r.type === 'STUDENT' &&
+      !r.isApproved &&
+      round?.status === RoundStatus.UNDER_REVIEW
+    );
   });
-  const hasActiveCollectingRound = activeRounds.some(r => r.status === RoundStatus.ACTIVE);
-  const showTasksFirst = hasActiveCollectingRound && myPendingTasks.length > 0;
+
+  const hasRoundUnderReview = activeRounds.some(
+    r => r.status === RoundStatus.UNDER_REVIEW
+  );
+
+  const showTasksFirst =
+    !hasRoundUnderReview &&
+    myPendingTasks.length > 0;
 
   const myMonitorReports = reports
     .filter(r => r.targetId === me?.id && r.type === 'MONITOR')
@@ -589,14 +605,15 @@ const MonitorPanel: React.FC = () => {
                               </span>
                             </div>
 
-                            {isActive && (
+                            {(isActive || isReview) && (
                               <div className="monitor-round-card__footer">
                                 <button
                                   onClick={() => handleGenerateAllReports(round.id)}
                                   disabled={batchProcessing === round.id || totalSubmitted === 0}
                                   className="monitor-round-card__action-btn"
                                 >
-                                  {batchProcessing === round.id ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />} Consolidar IA
+                                  {batchProcessing === round.id ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />}
+                                  {isReview ? 'Reconsolidar IA' : 'Consolidar IA'}
                                 </button>
                               </div>
                             )}
@@ -619,7 +636,7 @@ const MonitorPanel: React.FC = () => {
                   <p className="monitor-collection-card__subtitle">Alunos com tarefas pendentes nas sprints ativas.</p>
                 </div>
                 <div className="monitor-collection-list">
-                  {activeRounds.filter(r => r.status === RoundStatus.ACTIVE).map(round => {
+                  {activeRounds.filter(r => r.status === RoundStatus.ACTIVE || r.status === RoundStatus.UNDER_REVIEW).map(round => {
                     const pendings = getStudentsWithPendingTasks(round);
                     if (pendings.length === 0) return null;
 
@@ -659,7 +676,7 @@ const MonitorPanel: React.FC = () => {
                       </div>
                     );
                   })}
-                  {activeRounds.filter(r => r.status === RoundStatus.ACTIVE).every(r => getStudentsWithPendingTasks(r).length === 0) && (
+                  {activeRounds.filter(r => r.status === RoundStatus.ACTIVE || r.status === RoundStatus.UNDER_REVIEW).every(r => getStudentsWithPendingTasks(r).length === 0) && (
                     <div className="monitor-all-clear">
                       <div className="monitor-all-clear__icon-wrapper">
                         <CheckCircle2 size={32} />
